@@ -1,6 +1,6 @@
 import { ErroDominio, ENTRADA_INVALIDA, MOTOR_INDISPONIVEL } from "../dominio/erros.js";
 
-export const MSG_INDISPONIVEL = "Motor oficial indisponível. Inicie-o com scripts\iniciar-motores.ps1.";
+export const MSG_INDISPONIVEL = "Motor oficial indisponível. Inicie-o com scripts\\iniciar-motores.ps1.";
 export const TIMEOUT_MS = 30000;
 
 export interface OpcoesRequisicao {
