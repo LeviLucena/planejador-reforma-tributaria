@@ -37,7 +37,7 @@ describe("regra de fonte obrigatória", () => {
 
   it("fonte completa insere; lei_transicao sem fonte falha", () => {
     expect(inserir().changes).toBe(1);
-    expect(inserir({ origem: "lei_transicao" }).changes).toBe(1);
+    expect(inserir({ tributo: "IBS_UF", origem: "lei_transicao" }).changes).toBe(1);
     expect(() => inserir({ origem: "lei_transicao", fonte_norma: null })).toThrow(/CHECK constraint/);
   });
 
@@ -98,6 +98,6 @@ describe("migrações", () => {
     const de_novo = abrirBanco(arquivo);
     const n = de_novo.prepare("SELECT COUNT(*) AS n FROM migracoes").get();
     de_novo.close();
-    expect(n).toEqual({ n: 1 });
+    expect(n).toEqual({ n: 2 });
   });
 });

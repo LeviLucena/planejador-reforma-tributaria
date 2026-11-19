@@ -127,7 +127,7 @@ describe("resolverAliquotas", () => {
 
   it("(i) CBS com uf é rejeitada", () => {
     const e = erro(() => adicionarPremissa(banco, c, { ...usr("CBS", "8.8"), uf: "SP" }));
-    expect(e?.codigo).toBe("ENTRADA_INVALIDA");
+    expect({ codigo: e?.codigo, status: e?.status }).toEqual({ codigo: "ENTRADA_INVALIDA", status: 400 });
   });
 
   it("(j) sp e SP resolvem igual", () => {
@@ -147,10 +147,82 @@ describe("resolverAliquotas", () => {
         consultadoEm: "2026-11-18",
       }),
     );
-    expect({ codigo: e?.codigo, status: e?.status, cita: e?.message.includes("fonte_artigo") }).toEqual({
-      codigo: "ENTRADA_INVALIDA",
-      status: 400,
-      cita: true,
+    expect({
+      codigo: e?.codigo,
+      status: e?.status,
+      artigo: e?.message.includes("fonteArtigo"),
+      norma: e?.message.includes("fonteNorma"),
+      consultado: e?.message.includes("consultadoEm"),
+    }).toEqual({ codigo: "ENTRADA_INVALIDA", status: 400, artigo: true, norma: false, consultado: false });
+  });
+
+  it("(k2) oficial sem fonteNorma nomeia só fonteNorma", () => {
+    const e = erro(() =>
+      adicionarPremissa(banco, c, {
+        tributo: "CBS", aliquota: "8.8", origem: "oficial", fonteArtigo: "art. 1", consultadoEm: "2026-11-18",
+      }),
+    );
+    expect({
+      codigo: e?.codigo,
+      norma: e?.message.includes("fonteNorma"),
+      artigo: e?.message.includes("fonteArtigo"),
+      consultado: e?.message.includes("consultadoEm"),
+    }).toEqual({ codigo: "ENTRADA_INVALIDA", norma: true, artigo: false, consultado: false });
+  });
+
+  it("(k3) oficial sem consultadoEm nomeia só consultadoEm", () => {
+    const e = erro(() =>
+      adicionarPremissa(banco, c, {
+        tributo: "CBS", aliquota: "8.8", origem: "oficial", fonteNorma: "LC 214/2025", fonteArtigo: "art. 1",
+      }),
+    );
+    expect({
+      codigo: e?.codigo,
+      consultado: e?.message.includes("consultadoEm"),
+      norma: e?.message.includes("fonteNorma"),
+      artigo: e?.message.includes("fonteArtigo"),
+    }).toEqual({ codigo: "ENTRADA_INVALIDA", consultado: true, norma: false, artigo: false });
+  });
+
+  it("(l) origem inválida e tributo inválido têm erro próprio, sem citar fonte ausente", () => {
+    const o = erro(() => adicionarPremissa(banco, c, { ...usr("CBS", "8.8"), origem: "xyz" as never }));
+    const t = erro(() => adicionarPremissa(banco, c, { ...usr("CBS", "8.8"), tributo: "XYZ" as never }));
+    expect({
+      o: [o?.codigo, o?.status, /fonte|consultado/i.test(o?.message ?? ""), o?.message.includes("origem")],
+      t: [t?.codigo, t?.status, /fonte|consultado/i.test(t?.message ?? ""), t?.message.includes("tributo")],
+    }).toEqual({ o: ["ENTRADA_INVALIDA", 400, false, true], t: ["ENTRADA_INVALIDA", 400, false, true] });
+  });
+
+  it("(m) duplicata (conjunto, tributo, uf, município) é rejeitada, inclusive CBS nacional", () => {
+    adicionarPremissa(banco, c, usr("CBS", "8.8"));
+    adicionarPremissa(banco, c, { ...usr("IBS_MUN", "0.05"), uf: "SP", municipioIbge: 3550308 });
+    const a = erro(() => adicionarPremissa(banco, c, usr("CBS", "9.9")));
+    const b = erro(() => adicionarPremissa(banco, c, { ...usr("IBS_MUN", "0.07"), uf: "sp", municipioIbge: 3550308 }));
+    const outro = criarConjunto(banco, { nome: "outro", vigenciaInicio: "2027-01-01" });
+    expect({
+      a: [a?.codigo, a?.status, a?.message.includes("CBS"), a?.message.includes("xiste")],
+      b: [b?.codigo, b?.status, b?.message.includes("IBS_MUN"), b?.message.includes("3550308")],
+      outroConjunto: erro(() => adicionarPremissa(banco, outro, usr("CBS", "9.9"))),
+    }).toEqual({
+      a: ["ENTRADA_INVALIDA", 400, true, true],
+      b: ["ENTRADA_INVALIDA", 400, true, true],
+      outroConjunto: undefined,
     });
+  });
+
+  it("(n) data inválida é rejeitada na resolução e na criação do conjunto", () => {
+    completo();
+    const invalidas = ["abc", "", "2027-13-45", "2027-02-30"];
+    const res = invalidas.map((d) => {
+      const e = erro(() => resolverAliquotas(banco, c, "SP", 3550308, d));
+      return [e?.codigo, e?.status];
+    });
+    const cri = invalidas.map((d) => {
+      const e = erro(() => criarConjunto(banco, { nome: "x", vigenciaInicio: d }));
+      return [e?.codigo, e?.status];
+    });
+    const ok = erro(() => criarConjunto(banco, { nome: "y", vigenciaInicio: "2027-03-01T00:00:00-03:00" }));
+    const esperado = invalidas.map(() => ["ENTRADA_INVALIDA", 400]);
+    expect({ res, cri, ok }).toEqual({ res: esperado, cri: esperado, ok: undefined });
   });
 });

@@ -1,7 +1,7 @@
 import type { Banco } from "../db/banco.js";
 import { ErroDominio, PREMISSA_AUSENTE } from "../dominio/erros.js";
 import type { AliquotasNominais } from "../dominio/tipos.js";
-import type { OrigemPremissa } from "./repositorio.js";
+import { validarDataIso, type OrigemPremissa } from "./repositorio.js";
 
 interface Linha {
   aliquota: string;
@@ -15,13 +15,13 @@ export function resolverAliquotas(
   municipioIbge: number,
   data: string,
 ): { aliquotas: AliquotasNominais; origens: Record<string, OrigemPremissa> } {
+  const dia = validarDataIso(data, "data");
   const conjunto = banco
     .prepare("SELECT vigencia_inicio FROM conjunto_premissas WHERE id = ?")
     .get(conjuntoId) as { vigencia_inicio: string } | undefined;
   if (!conjunto) {
     throw new ErroDominio(PREMISSA_AUSENTE, `Conjunto de premissas ${conjuntoId} não encontrado.`, 422);
   }
-  const dia = data.slice(0, 10);
   if (dia < conjunto.vigencia_inicio.slice(0, 10)) {
     throw new ErroDominio(
       PREMISSA_AUSENTE,
