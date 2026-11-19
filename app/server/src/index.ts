@@ -1,7 +1,13 @@
 import { buildApp } from "./app.js";
-import { config } from "./config.js";
+import { config, validarPortaApp } from "./config.js";
 import { abrirBanco } from "./db/banco.js";
 import { criarMotores } from "./motores/regimeRegular.js";
+
+const erroPorta = validarPortaApp(process.env.PORTA_APP);
+if (erroPorta) {
+  console.error(`ERRO: ${erroPorta}`);
+  process.exit(1);
+}
 
 const motores = criarMotores(config);
 const banco = abrirBanco(config.caminhoBanco);
