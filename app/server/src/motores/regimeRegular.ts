@@ -6,7 +6,7 @@ import type {
   ResultadoOperacao,
   SituacaoTributaria,
 } from "../dominio/tipos.js";
-import { requisitar } from "./http.js";
+import { lerJson, requisitar } from "./http.js";
 import { listarAtividades } from "./simplesNacional.js";
 
 export interface VersoesMotores {
@@ -25,6 +25,8 @@ export interface MotoresPort {
 export interface ConfigMotores {
   urlRegimeRegular: string;
   urlSimples: string;
+  /** Tempo máximo por requisição ao motor (padrão 30000 ms). */
+  timeoutMs?: number;
 }
 
 export function parseResultado(texto: string): ResultadoOperacao {
@@ -45,25 +47,29 @@ export function extrairMemoriaCalculo(objeto: ObjetoResultado): {
 }
 
 export function criarMotores(cfg: ConfigMotores): MotoresPort {
+  const timeoutMs = cfg.timeoutMs;
   return {
     async calcularOperacao(op) {
-      const texto = await requisitar(`${cfg.urlRegimeRegular}/observabilidade/regime-geral`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(op),
-      });
-      return parseResultado(texto);
+      const texto = await requisitar(
+        `${cfg.urlRegimeRegular}/observabilidade/regime-geral`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(op),
+        },
+        { entradaDoChamador: true, timeoutMs },
+      );
+      return lerJson<ResultadoOperacao>(texto);
     },
 
     async versoes() {
-      const reg = JSON.parse(await requisitar(`${cfg.urlRegimeRegular}/dados-abertos/versao`)) as {
-        versaoApp: string;
-        versaoDb: string;
-      };
-      const simples = JSON.parse(await requisitar(`${cfg.urlSimples}/versao`)) as {
-        versaoApp: string;
-        versaoDb: string;
-      };
+      type Versao = { versaoApp: string; versaoDb: string };
+      const reg = lerJson<Versao>(
+        await requisitar(`${cfg.urlRegimeRegular}/dados-abertos/versao`, undefined, { timeoutMs }),
+      );
+      const simples = lerJson<Versao>(
+        await requisitar(`${cfg.urlSimples}/versao`, undefined, { timeoutMs }),
+      );
       return {
         regimeRegular: `${reg.versaoApp}+${reg.versaoDb}`,
         simples: { app: simples.versaoApp, db: simples.versaoDb },
@@ -73,17 +79,21 @@ export function criarMotores(cfg: ConfigMotores): MotoresPort {
     async listarSituacoes(data) {
       const texto = await requisitar(
         `${cfg.urlRegimeRegular}/dados-abertos/situacoes-tributarias/cbs-ibs?data=${encodeURIComponent(data)}`,
+        undefined,
+        { timeoutMs },
       );
-      return JSON.parse(texto) as SituacaoTributaria[];
+      return lerJson<SituacaoTributaria[]>(texto);
     },
 
     async listarFundamentacoes(data) {
       const texto = await requisitar(
         `${cfg.urlRegimeRegular}/dados-abertos/fundamentacoes-legais?data=${encodeURIComponent(data)}`,
+        undefined,
+        { timeoutMs },
       );
-      return JSON.parse(texto) as Fundamentacao[];
+      return lerJson<Fundamentacao[]>(texto);
     },
 
-    listarAtividades: (data) => listarAtividades(cfg.urlSimples, data),
+    listarAtividades: (data) => listarAtividades(cfg.urlSimples, data, timeoutMs),
   };
 }

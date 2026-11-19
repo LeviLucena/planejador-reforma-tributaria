@@ -56,15 +56,17 @@ describe("corpo enviado ao motor", () => {
     servidor?.close();
   });
 
-  async function capturar(status = 200, resposta = "{}"): Promise<{ corpo: () => string; url: string }> {
+  async function capturar(status = 200, resposta: string = "{}", atrasoMs = 0): Promise<{ corpo: () => string; url: string }> {
     let corpo = "";
     servidor = createServer((req, res) => {
       const partes: Buffer[] = [];
       req.on("data", (c) => partes.push(c));
       req.on("end", () => {
         corpo = Buffer.concat(partes).toString("utf8");
-        res.writeHead(status, { "content-type": "application/json" });
-        res.end(resposta);
+        setTimeout(() => {
+          res.writeHead(status, { "content-type": "application/json" });
+          res.end(resposta);
+        }, atrasoMs);
       });
     });
     await new Promise<void>((ok) => servidor.listen(0, "127.0.0.1", ok));
@@ -101,5 +103,61 @@ describe("corpo enviado ao motor", () => {
     const c = await capturar(500, "{}");
     const erro = await criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url }).calcularOperacao(op).catch((e) => e);
     expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");
+  });
+
+  it("detail objeto/array não vira [object Object]", async () => {
+    const c = await capturar(422, '{"detail":{"campo":"uf","motivo":"inválida"}}');
+    const erro = await criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url }).calcularOperacao(op).catch((e) => e);
+    expect(erro.codigo).toBe("ENTRADA_INVALIDA");
+    expect(erro.message).not.toContain("[object Object]");
+    expect(erro.message).toContain('"campo":"uf"');
+  });
+
+  it("2xx com corpo que não é JSON vira MOTOR_INDISPONIVEL", async () => {
+    const c = await capturar(200, "<html>nao e json</html>");
+    const erro = await criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url }).calcularOperacao(op).catch((e) => e);
+    expect(erro).toBeInstanceOf(ErroDominio);
+    expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");
+    expect(erro.status).toBe(503);
+  });
+
+  it("GET sem entrada do chamador: qualquer não-2xx vira MOTOR_INDISPONIVEL", async () => {
+    for (const status of [404, 422, 302]) {
+      const c = await capturar(status, "{}");
+      const m = criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url });
+      for (const chamada of [
+        () => m.versoes(),
+        () => m.listarSituacoes("2027-01-01"),
+        () => m.listarFundamentacoes("2027-01-01"),
+        () => m.listarAtividades("2027-01-01"),
+      ]) {
+        const erro = await chamada().catch((e) => e);
+        expect(erro.codigo, `status ${status}`).toBe("MOTOR_INDISPONIVEL");
+        expect(erro.status).toBe(503);
+      }
+      servidor.close();
+    }
+  });
+
+  it("timeout vira MOTOR_INDISPONIVEL", async () => {
+    const c = await capturar(200, '{"objetos":[],"total":{}}', 500);
+    const m = criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url, timeoutMs: 50 });
+    const erro = await m.calcularOperacao(op).catch((e) => e);
+    expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");
+  });
+
+  it("versoes() com um motor fora do ar falha por inteiro", async () => {
+    const c = await capturar(200, '{"versaoApp":"1.6.1","versaoDb":"V0059"}');
+    const m = criarMotores({ urlRegimeRegular: c.url, urlSimples: "http://127.0.0.1:1/api" });
+    const erro = await m.versoes().catch((e) => e);
+    expect(erro).toBeInstanceOf(ErroDominio);
+    expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");
+  });
+
+  it("4xx com corpo que não é JSON vira ENTRADA_INVALIDA com o texto truncado", async () => {
+    const c = await capturar(400, "x".repeat(500));
+    const erro = await criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url }).calcularOperacao(op).catch((e) => e);
+    expect(erro.codigo).toBe("ENTRADA_INVALIDA");
+    expect(erro.message).toBe("x".repeat(300));
   });
 });
