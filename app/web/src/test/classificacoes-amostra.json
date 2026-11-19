@@ -1,0 +1,79 @@
+[
+ {
+  "id": 1,
+  "codigo": "000",
+  "descricao": "Tributação integral",
+  "classificacoesTributarias": [
+   {
+    "codigo": "000001",
+    "descricao": "Situações tributadas integralmente pelo IBS e CBS."
+   },
+   {
+    "codigo": "000002",
+    "descricao": "Exploração de via"
+   },
+   {
+    "codigo": "000003",
+    "descricao": "Regime automotivo - projetos incentivados (art. 311)"
+   },
+   {
+    "codigo": "000004",
+    "descricao": "Regime automotivo - projetos incentivados (art. 312)"
+   },
+   {
+    "codigo": "000005",
+    "descricao": "Operação com EAC destinado à mistura com gasolina A, mas com saída do biocombustível com destinação diversa"
+   }
+  ]
+ },
+ {
+  "id": 2,
+  "codigo": "010",
+  "descricao": "Tributação com alíquotas uniformes",
+  "classificacoesTributarias": [
+   {
+    "codigo": "010001",
+    "descricao": "Operações do FGTS não realizadas pela Caixa Econômica Federal"
+   },
+   {
+    "codigo": "010002",
+    "descricao": "Operações do serviço financeiro"
+   }
+  ]
+ },
+ {
+  "id": 4,
+  "codigo": "200",
+  "descricao": "Alíquota reduzida",
+  "classificacoesTributarias": [
+   {
+    "codigo": "200001",
+    "descricao": "Serviços de transporte de bens até as zonas de processamento de exportação e bens exportados a partir das zonas de processamento de exportação"
+   },
+   {
+    "codigo": "200002",
+    "descricao": "Fornecimento ou importação para produtor rural não contribuinte ou TAC"
+   },
+   {
+    "codigo": "200003",
+    "descricao": "Vendas de produtos destinados à alimentação humana (Anexo I)"
+   },
+   {
+    "codigo": "200004",
+    "descricao": "Fornecimento de dispositivos médicos (Anexo XII)"
+   },
+   {
+    "codigo": "200005",
+    "descricao": "Fornecimento de dispositivos médicos para órgãos da administração pública e entidades de saúde imunes (Anexo IV)"
+   },
+   {
+    "codigo": "200028",
+    "descricao": "Fornecimento dos serviços de educação (Anexo II)"
+   },
+   {
+    "codigo": "200035",
+    "descricao": "Fornecimento dos produtos de higiene pessoal e limpeza (Anexo VIII)"
+   }
+  ]
+ }
+]

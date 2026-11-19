@@ -119,3 +119,44 @@ export function adicionarPremissa(banco: Banco, conjuntoId: number, p: PremissaE
     throw e;
   }
 }
+
+export interface ConjuntoResumo {
+  id: number;
+  nome: string;
+  vigenciaInicio: string;
+  vigenciaFim: string | null;
+  observacao: string | null;
+  validadoPor: string | null;
+  validadoEm: string | null;
+  linhas: number;
+}
+
+/** Lista os conjuntos de premissas (somente leitura), com a contagem de linhas de cada um. */
+export function listarConjuntos(banco: Banco): ConjuntoResumo[] {
+  const linhas = banco
+    .prepare(
+      `SELECT c.id, c.nome, c.vigencia_inicio, c.vigencia_fim, c.observacao, c.validado_por, c.validado_em,
+              (SELECT COUNT(*) FROM premissa_aliquota p WHERE p.conjunto_id = c.id) AS linhas
+         FROM conjunto_premissas c ORDER BY c.id`,
+    )
+    .all() as {
+    id: number;
+    nome: string;
+    vigencia_inicio: string;
+    vigencia_fim: string | null;
+    observacao: string | null;
+    validado_por: string | null;
+    validado_em: string | null;
+    linhas: number;
+  }[];
+  return linhas.map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    vigenciaInicio: l.vigencia_inicio,
+    vigenciaFim: l.vigencia_fim,
+    observacao: l.observacao,
+    validadoPor: l.validado_por,
+    validadoEm: l.validado_em,
+    linhas: Number(l.linhas),
+  }));
+}

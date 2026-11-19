@@ -7,6 +7,8 @@ import type { Banco } from "./db/banco.js";
 import type { MotoresPort } from "./motores/regimeRegular.js";
 import { rotasSaude } from "./rotas/saude.js";
 import { rotasCenarios } from "./rotas/cenarios.js";
+import { rotasConsultas } from "./rotas/consultas.js";
+import { rotasPremissas } from "./rotas/premissas.js";
 import { rotasEmpresas } from "./rotas/empresas.js";
 import { rotasSimulacao } from "./rotas/simulacao.js";
 
@@ -59,6 +61,12 @@ export function buildApp(opcoes: OpcoesApp = {}): FastifyInstance {
   app.register(rotasSaude);
   if (opcoes.banco) {
     app.register(rotasEmpresas({ banco: opcoes.banco }));
+  }
+  if (opcoes.motores) {
+    app.register(rotasConsultas({ motores: opcoes.motores }));
+  }
+  if (opcoes.banco) {
+    app.register(rotasPremissas({ banco: opcoes.banco }));
   }
   if (opcoes.motores && opcoes.banco) {
     const deps = { motores: opcoes.motores, banco: opcoes.banco };

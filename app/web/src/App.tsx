@@ -1,6 +1,6 @@
 import { NavLink, Outlet, Route, Routes } from "react-router-dom";
 import { AvisoSimulacao } from "./componentes/AvisoSimulacao";
-import { PaginaSimulador } from "./paginas";
+import { PaginaSimulador } from "./paginas/Simulador";
 
 // Para adicionar uma página: uma linha aqui e uma em ROTAS.
 const NAVEGACAO = [{ caminho: "/", rotulo: "Simulador" }];

@@ -45,9 +45,23 @@ describe("cliente", () => {
     expect(await cliente.empresas.remover(3)).toBeUndefined();
   });
 
+  it("2xx com corpo que não é JSON vira RESPOSTA_INVALIDA; corpo vazio devolve undefined", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "<html>oops" }));
+    const erro = await cliente.saude().catch((e) => e);
+    expect(erro).toBeInstanceOf(ErroApi);
+    expect(erro.codigo).toBe("RESPOSTA_INVALIDA");
+    expect(erro.status).toBe(200);
+    expect(erro.message).toMatch(/servidor/);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(200)));
+    expect(await cliente.saude()).toBeUndefined();
+  });
+
   const op = { id: "x" } as never;
   const casos: [string, () => Promise<unknown>, string, string][] = [
     ["saude", () => cliente.saude(), "GET", "/api/saude"],
+    ["classificacoes", () => cliente.classificacoes("2027-01-01"), "GET", "/api/classificacoes?data=2027-01-01"],
+    ["fundamentacoes", () => cliente.fundamentacoes("2027-01-01"), "GET", "/api/fundamentacoes?data=2027-01-01"],
+    ["premissas.conjuntos", () => cliente.premissas.conjuntos(), "GET", "/api/premissas/conjuntos"],
     ["empresas.listar", () => cliente.empresas.listar(), "GET", "/api/empresas"],
     ["empresas.obter", () => cliente.empresas.obter(2), "GET", "/api/empresas/2"],
     ["empresas.criar", () => cliente.empresas.criar({} as never), "POST", "/api/empresas"],

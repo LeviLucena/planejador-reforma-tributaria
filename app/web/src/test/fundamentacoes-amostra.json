@@ -1,0 +1,42 @@
+[
+ {
+  "codigoClassificacaoTributaria": "000001",
+  "descricaoClassificacaoTributaria": "Situações tributadas integralmente pelo IBS e CBS.",
+  "codigoSituacaoTributaria": "000",
+  "descricaoSituacaoTributaria": "Tributação integral",
+  "conjuntoTributo": "CBS e IBS",
+  "texto": "Regra Geral",
+  "textoCurto": "LC 214/2025",
+  "referenciaNormativa": "LIVRO I \\n\\nDO IMPOSTO SOBRE BENS E SERVIÇOS (IBS) E DA CONTRIBUIÇÃO SOCIAL SOBRE BENS E SERVIÇOS (CBS) \\n\\nTÍTULO I \\n\\nDAS NORMAS GERAIS DO IBS E DA CBS \\n\\nCAPÍTULO I \\n\\nDISPOSIÇÕES PRELIMINARES"
+ },
+ {
+  "codigoClassificacaoTributaria": "200003",
+  "descricaoClassificacaoTributaria": "Vendas de produtos destinados à alimentação humana (Anexo I)",
+  "codigoSituacaoTributaria": "200",
+  "descricaoSituacaoTributaria": "Alíquota reduzida",
+  "conjuntoTributo": "CBS e IBS",
+  "texto": "Art. 125. Ficam reduzidas a zero as alíquotas do IBS e da CBS incidentes sobre as vendas de produtos destinados à alimentação humana relacionados no Anexo I desta Lei Complementar, com a especificação das respectivas classificações da NCM/SH, que compõem a Cesta Básica Nacional de Alimentos, criada nos termos do art. 8º da Emenda Constitucional nº 132, de 20 de dezembro de 2023.",
+  "textoCurto": "Art. 125",
+  "referenciaNormativa": "LIVRO I\\n\\nDO IMPOSTO SOBRE BENS E SERVIÇOS (IBS) E DA CONTRIBUIÇÃO SOCIAL SOBRE BENS E SERVIÇOS (CBS) \\n\\nTÍTULO III \\n\\nDA DEVOLUÇÃO PERSONALIZADA DO IBS E DA CBS (CASHBACK) E DA CESTA BÁSICA NACIONAL DE ALIMENTOS \\n\\nCAPÍTULO II \\n\\nDA CESTA BÁSICA NACIONAL DE ALIMENTOS"
+ },
+ {
+  "codigoClassificacaoTributaria": "200028",
+  "descricaoClassificacaoTributaria": "Fornecimento dos serviços de educação (Anexo II)",
+  "codigoSituacaoTributaria": "200",
+  "descricaoSituacaoTributaria": "Alíquota reduzida",
+  "conjuntoTributo": "CBS e IBS",
+  "texto": "Art. 129. Ficam reduzidas em 60% (sessenta por cento) as alíquotas do IBS e da CBS incidentes sobre o fornecimento dos serviços de educação relacionados no Anexo II desta Lei Complementar, com a especificação das respectivas classificações da Nomenclatura Brasileira de Serviços, Intangíveis e Outras Operações que Produzam Variações no Patrimônio (NBS).",
+  "textoCurto": "Art. 129",
+  "referenciaNormativa": "LIVRO I \\n\\nDO IMPOSTO SOBRE BENS E SERVIÇOS (IBS) E DA CONTRIBUIÇÃO SOCIAL SOBRE BENS E SERVIÇOS (CBS) \\n\\nTÍTULO IV\\n\\nDOS REGIMES DIFERENCIADOS DO IBS E DA CBS\\n\\nCAPÍTULO III\\n\\nDA REDUÇÃO EM SESSENTA POR CENTO DAS ALÍQUOTAS DO IBS E DA CBS\\n\\nSeção II\\n\\nDos Serviços de Educação"
+ },
+ {
+  "codigoClassificacaoTributaria": "200035",
+  "descricaoClassificacaoTributaria": "Fornecimento dos produtos de higiene pessoal e limpeza (Anexo VIII)",
+  "codigoSituacaoTributaria": "200",
+  "descricaoSituacaoTributaria": "Alíquota reduzida",
+  "conjuntoTributo": "CBS e IBS",
+  "texto": "Art. 136. Ficam reduzidas em 60% (sessenta por cento) as alíquotas do IBS e da CBS incidentes sobre o fornecimento dos produtos de higiene pessoal e limpeza relacionados no Anexo VIII desta Lei Complementar, com a especificação das respectivas classificações da NCM/SH.",
+  "textoCurto": "Art. 136",
+  "referenciaNormativa": "LIVRO I \\n\\nDO IMPOSTO SOBRE BENS E SERVIÇOS (IBS) E DA CONTRIBUIÇÃO SOCIAL SOBRE BENS E SERVIÇOS (CBS) \\n\\nTÍTULO IV\\n\\nDOS REGIMES DIFERENCIADOS DO IBS E DA CBS\\n\\nCAPÍTULO III\\n\\nDA REDUÇÃO EM SESSENTA POR CENTO DAS ALÍQUOTAS DO IBS E DA CBS\\n\\nSeção VIII\\n\\nDos Produtos de Higiene Pessoal e Limpeza Majoritariamente Consumidos por Famílias de Baixa Renda"
+ }
+]
