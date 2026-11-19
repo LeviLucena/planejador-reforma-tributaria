@@ -5,12 +5,12 @@ import type { OperacaoEntrada } from "../dominio/tipos.js";
 import type { MotoresPort } from "../motores/regimeRegular.js";
 import { simularOperacao } from "../simulacao/servico.js";
 
-const UFS = new Set(
+export const UFS = new Set(
   "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" "),
 );
 const RE_DH = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
 
-function invalida(mensagem: string): never {
+export function invalida(mensagem: string): never {
   throw new ErroDominio(ENTRADA_INVALIDA, mensagem, 400);
 }
 
@@ -30,9 +30,14 @@ function digitos(v: unknown, n: number): boolean {
   return typeof v === "string" && v.length === n && /^[0-9]+$/.test(v);
 }
 
-function validarCorpo(corpo: unknown): { operacao: OperacaoEntrada; conjuntoPremissasId: number } {
-  if (!ehObjeto(corpo)) invalida("Corpo da requisição inválido: esperado um objeto com operacao e conjuntoPremissasId.");
-  const { operacao: op, conjuntoPremissasId } = corpo;
+export function validarConjuntoId(v: unknown): number {
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 1) {
+    invalida("Campo conjuntoPremissasId inválido: esperado número inteiro positivo.");
+  }
+  return v;
+}
+
+export function validarOperacao(op: unknown): OperacaoEntrada {
   if (!ehObjeto(op)) invalida("Campo operacao ausente ou inválido: esperado um objeto.");
   if (typeof op.id !== "string") invalida("Campo id inválido: esperado texto.");
   if (typeof op.versao !== "string") invalida("Campo versao inválido: esperado texto.");
@@ -62,10 +67,13 @@ function validarCorpo(corpo: unknown): { operacao: OperacaoEntrada; conjuntoPrem
     if (presente(it.ncm) && !digitos(it.ncm, 8)) invalida(`Campo ${rot}.ncm inválido: esperados exatamente 8 dígitos.`);
     if (presente(it.nbs) && !digitos(it.nbs, 9)) invalida(`Campo ${rot}.nbs inválido: esperados exatamente 9 dígitos.`);
   });
-  if (typeof conjuntoPremissasId !== "number" || !Number.isInteger(conjuntoPremissasId) || conjuntoPremissasId < 1) {
-    invalida("Campo conjuntoPremissasId inválido: esperado número inteiro positivo.");
-  }
-  return { operacao: op as unknown as OperacaoEntrada, conjuntoPremissasId };
+  return op as unknown as OperacaoEntrada;
+}
+
+function validarCorpo(corpo: unknown): { operacao: OperacaoEntrada; conjuntoPremissasId: number } {
+  if (!ehObjeto(corpo)) invalida("Corpo da requisição inválido: esperado um objeto com operacao e conjuntoPremissasId.");
+  const operacao = validarOperacao(corpo.operacao);
+  return { operacao, conjuntoPremissasId: validarConjuntoId(corpo.conjuntoPremissasId) };
 }
 
 export function rotasSimulacao(deps: { motores: MotoresPort; banco: Banco }) {

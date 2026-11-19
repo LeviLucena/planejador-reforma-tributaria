@@ -13,3 +13,4 @@ export class ErroDominio extends Error {
 export const MOTOR_INDISPONIVEL = "MOTOR_INDISPONIVEL"; // 503
 export const ENTRADA_INVALIDA = "ENTRADA_INVALIDA"; // 400
 export const PREMISSA_AUSENTE = "PREMISSA_AUSENTE"; // 422
+export const NAO_ENCONTRADO = "NAO_ENCONTRADO"; // 404

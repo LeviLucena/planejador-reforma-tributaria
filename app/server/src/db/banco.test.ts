@@ -99,7 +99,7 @@ describe("migrações", () => {
     const de_novo = abrirBanco(arquivo);
     const n = de_novo.prepare("SELECT COUNT(*) AS n FROM migracoes").get();
     de_novo.close();
-    expect(n).toEqual({ n: 3 });
+    expect(n).toEqual({ n: 4 });
   });
 
   it("banco que já tinha 001+002 recebe só a 003 e preserva os dados", () => {
@@ -125,6 +125,7 @@ describe("migrações", () => {
       "001_inicial.sql",
       "002_unicidade_premissa.sql",
       "003_vigencia_fim.sql",
+      "004_empresa_cnpj_unico.sql",
     ]);
     expect(migracoes.slice(0, 2).every((m) => m.aplicada_em === "2026-11-01T00:00:00Z")).toBe(true);
     expect(conjunto).toEqual({ nome: "velho", vigencia_fim: null });
