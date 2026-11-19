@@ -5,6 +5,7 @@ import type {
   OperacaoEntrada,
 } from "../../../server/src/dominio/tipos";
 import type { RequisicaoSimulacao } from "../../../server/src/simulacao/servico";
+import { lerDecimal } from "../decimais";
 import { paraIsoBrasilia } from "../formatacao";
 
 // Valores monetários e alíquotas ficam como TEXTO do começo ao fim: nunca viram Number.
@@ -124,10 +125,12 @@ export function formularioDoExemplo(ex: Exemplo): Omit<FormSimulador, "conjuntoI
   };
 }
 
-const RE_DECIMAL = /^\d+(?:[.,]\d+)?$/;
 const vazio = (v: string) => v.trim() === "";
-/** "100,50" vira "100.50" (só troca o separador; os dígitos seguem como digitados). */
-const decimal = (v: string) => v.trim().replace(",", ".");
+/** "100,50" vira "100.50" e "1.200,50" vira "1200.50" (validar() já recusou o que não é decimal). */
+const decimal = (v: string) => {
+  const r = lerDecimal(v);
+  return r.ok ? r.valor : v.trim();
+};
 
 const DECIMAIS: [keyof ItemForm, string][] = [
   ["baseCalculo", "Base de cálculo"],
@@ -160,7 +163,9 @@ export function validar(f: FormSimulador): Record<string, string> {
     for (const [campo, rotulo] of DECIMAIS) {
       if (!it.isAberto && campo.startsWith("is")) continue; // bloco do IS recolhido não é enviado nem validado
       const v = it[campo] as string;
-      if (!vazio(v) && !RE_DECIMAL.test(v.trim())) e[`${k}.${campo}`] = `${rotulo}: use apenas números (ex.: 100,50).`;
+      if (vazio(v)) continue;
+      const lido = lerDecimal(v);
+      if (!lido.ok) e[`${k}.${campo}`] = `${rotulo}: ${lido.erro}`;
     }
     if (it.isAberto && !vazio(it.isCst) && !/^\d{3}$/.test(it.isCst)) e[`${k}.isCst`] = "O CST do IS deve ter exatamente 3 dígitos.";
     if (it.isAberto && !vazio(it.isCClassTrib) && !/^\d{6}$/.test(it.isCClassTrib)) {

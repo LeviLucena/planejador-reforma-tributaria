@@ -9,12 +9,12 @@ import type {
 import { cliente } from "../api/cliente";
 import { Campo } from "../componentes/Campo";
 import { ROTULO_ORIGEM } from "../componentes/ResultadoOperacao";
+import { ERRO_NAO_NUMERICO, lerDecimal } from "../decimais";
 import { dataBR, dataBrasilia, formatarDecimalBR } from "../formatacao";
 import { UFS } from "../simulador/modelo";
 
 const TRIBUTOS: TributoPremissa[] = ["CBS", "IBS_UF", "IBS_MUN", "IS_ADVALOREM", "IS_ADREM"];
 const NACIONAIS: TributoPremissa[] = ["CBS", "IS_ADVALOREM", "IS_ADREM"];
-const RE_DECIMAL = /^\d+(?:[.,]\d+)?$/;
 
 const mensagemDe = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
 
@@ -69,7 +69,10 @@ const LINHA_VAZIA: FormLinha = {
 
 function validarLinha(f: FormLinha): Record<string, string> {
   const e: Record<string, string> = {};
-  if (!RE_DECIMAL.test(f.aliquota.trim())) e.aliquota = "Informe a alíquota só com números (ex.: 8,8).";
+  const aliquota = lerDecimal(f.aliquota);
+  if (!aliquota.ok) {
+    e.aliquota = aliquota.erro === ERRO_NAO_NUMERICO ? "Informe a alíquota só com números (ex.: 8,8)." : aliquota.erro;
+  }
   if (f.tributo === "IBS_MUN" && f.municipio !== "" && !/^\d{7}$/.test(f.municipio)) {
     e.municipio = "O município deve ter exatamente 7 dígitos (código IBGE).";
   }
@@ -83,7 +86,8 @@ function validarLinha(f: FormLinha): Record<string, string> {
 }
 
 function montarLinha(f: FormLinha): PremissaEntrada {
-  const l: PremissaEntrada = { tributo: f.tributo, aliquota: f.aliquota.trim().replace(",", "."), origem: f.origem };
+  const lida = lerDecimal(f.aliquota);
+  const l: PremissaEntrada = { tributo: f.tributo, aliquota: lida.ok ? lida.valor : f.aliquota.trim(), origem: f.origem };
   if (!NACIONAIS.includes(f.tributo) && f.uf !== "") l.uf = f.uf;
   if (f.tributo === "IBS_MUN" && f.municipio !== "") l.municipioIbge = Number(f.municipio);
   if (f.origem !== "usuario") {

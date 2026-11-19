@@ -190,3 +190,30 @@ describe("ajustes da revisão do Task 12", () => {
     expect(detalhes.querySelector("summary")!.textContent).toMatch(aviso);
   });
 });
+
+describe("I7: ponto como separador de milhar", () => {
+  it("'1.200' na base de cálculo é recusado com a mensagem de vírgula e /api/simular não é chamado", async () => {
+    const chamadas = stub();
+    await abrir();
+    await carregarExemplo();
+    const i3 = screen.getByRole("group", { name: "Item 3" });
+    fireEvent.change(within(i3).getByLabelText("Base de cálculo"), { target: { value: "1.200" } });
+    simular();
+    expect(await screen.findByText('Base de cálculo: Use vírgula para decimais (ex.: 1200,00). "1.200" é ambíguo.')).toBeInTheDocument();
+    expect(within(i3).getByLabelText("Base de cálculo")).toHaveAttribute("aria-invalid", "true");
+    expect(chamadas.some((c) => c.url === "/api/simular")).toBe(false);
+  });
+
+  it("'1.200,50' (milhar com vírgula decimal) e '0.05'/'8.8' continuam aceitos e vão como texto", async () => {
+    const chamadas = stub();
+    await abrir();
+    await carregarExemplo();
+    const i3 = screen.getByRole("group", { name: "Item 3" });
+    fireEvent.change(within(i3).getByLabelText("Base de cálculo"), { target: { value: "1.200,50" } });
+    simular();
+    await waitFor(() => expect(chamadas.some((c) => c.url === "/api/simular")).toBe(true));
+    const corpo = corpoEnviado(chamadas);
+    expect(corpo.operacao.itens[2].baseCalculo).toBe("1200.50");
+    expect(corpo.operacao.itens[2].aliquotasNominais).toEqual({ cbs: "8.8", ibsEstadual: "0.05", ibsMunicipal: "0.05" });
+  });
+});

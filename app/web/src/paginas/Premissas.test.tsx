@@ -119,6 +119,25 @@ describe("adicionar linha", () => {
     expect(post.corpo).toEqual({ tributo: "CBS", aliquota: "8.80", origem: "usuario" });
   });
 
+  it("I7: '1.200' (ponto como milhar) é recusado com a mensagem de vírgula e a API não é chamada", async () => {
+    const chamadas = stub();
+    await abrirConjunto1();
+    fireEvent.change(screen.getByLabelText("Alíquota (%)"), { target: { value: "1.200" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar linha" }));
+    expect(await screen.findByText('Use vírgula para decimais (ex.: 1200,00). "1.200" é ambíguo.')).toBeInTheDocument();
+    expect(screen.getByLabelText("Alíquota (%)")).toHaveAttribute("aria-invalid", "true");
+    expect(chamadas.some((c) => c.metodo === "POST")).toBe(false);
+  });
+
+  it("I7: '0.05' do formato com ponto continua aceito e vai como texto", async () => {
+    const chamadas = stub();
+    await abrirConjunto1();
+    fireEvent.change(screen.getByLabelText("Alíquota (%)"), { target: { value: "0.05" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar linha" }));
+    await waitFor(() => expect(chamadas.some((c) => c.metodo === "POST")).toBe(true));
+    expect(chamadas.find((c) => c.metodo === "POST")!.corpo).toEqual({ tributo: "CBS", aliquota: "0.05", origem: "usuario" });
+  });
+
   it("oficial ou lei de transição revela e EXIGE norma, artigo e data; sem eles não chama a API", async () => {
     const chamadas = stub();
     await abrirConjunto1();
