@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
-    "test:integracao": "vitest run --config vitest.integracao.config.ts"
+    "test:integracao": "vitest run --config vitest.integracao.config.ts",
+    "premissas:carregar": "tsx src/premissas/cli-carregar.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.2.0",

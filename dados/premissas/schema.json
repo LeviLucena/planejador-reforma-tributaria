@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Arquivo de premissas de alíquota",
+  "description": "Formato lido por carregarArquivo (app/server/src/premissas/carregador.ts). Alíquotas em PERCENTUAL, como texto decimal: \"8.8\" significa 8,8%. Linhas oficial/lei_transicao exigem fonteNorma, fonteArtigo e consultadoEm. validado_por/validado_em não existem aqui: só o usuário valida, depois.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conjunto", "linhas"],
+  "properties": {
+    "conjunto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nome", "vigenciaInicio"],
+      "properties": {
+        "nome": { "type": "string", "minLength": 1 },
+        "vigenciaInicio": { "type": "string", "format": "date", "description": "AAAA-MM-DD; um conjunto tem uma única vigência inicial" },
+        "observacao": { "type": "string" }
+      }
+    },
+    "linhas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tributo", "aliquota", "origem"],
+        "properties": {
+          "tributo": { "enum": ["CBS", "IBS_UF", "IBS_MUN", "IS_ADVALOREM", "IS_ADREM"] },
+          "uf": { "type": "string", "pattern": "^[A-Za-z]{2}$", "description": "só para IBS_UF/IBS_MUN" },
+          "municipioIbge": { "type": "integer", "minimum": 1, "description": "código IBGE; só para IBS_MUN" },
+          "aliquota": { "type": "string", "pattern": "^\\d+(\\.\\d+)?$", "description": "percentual como texto decimal (\"0.9\" = 0,9%)" },
+          "origem": { "enum": ["oficial", "lei_transicao", "usuario"] },
+          "fonteNorma": { "type": "string", "minLength": 1 },
+          "fonteArtigo": { "type": "string", "minLength": 1 },
+          "consultadoEm": { "type": "string", "format": "date" }
+        },
+        "if": { "properties": { "origem": { "enum": ["oficial", "lei_transicao"] } } },
+        "then": { "required": ["fonteNorma", "fonteArtigo", "consultadoEm"] }
+      }
+    }
+  }
+}
