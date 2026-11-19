@@ -1,9 +1,12 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { ErroDominio, ENTRADA_INVALIDA } from "./dominio/erros.js";
+import type { MotoresPort } from "./motores/regimeRegular.js";
 import { rotasSaude } from "./rotas/saude.js";
 
-// Vazio por ora; as tarefas seguintes (motores, banco, ...) estendem.
-export interface OpcoesApp {}
+// As tarefas seguintes (banco, ...) estendem.
+export interface OpcoesApp {
+  motores?: MotoresPort;
+}
 
 export function buildApp(_opcoes: OpcoesApp = {}): FastifyInstance {
   const app = Fastify({ logger: false });
