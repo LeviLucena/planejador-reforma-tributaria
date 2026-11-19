@@ -1,3 +1,4 @@
+import { ArrowLeft, CircleAlert, CircleCheck, FolderOpen, LoaderCircle, Lock, RefreshCw, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { Cenario } from "../../../server/src/cenarios/repositorio";
@@ -5,6 +6,7 @@ import type { Fundamentacao } from "../../../server/src/dominio/tipos";
 import type { Empresa } from "../../../server/src/empresas/repositorio";
 import type { ConjuntoResumo } from "../../../server/src/premissas/repositorio";
 import { cliente, ErroApi } from "../api/cliente";
+import { Icone } from "../componentes/Icone";
 import { ResultadoOperacao } from "../componentes/ResultadoOperacao";
 import { ResumoEntradas } from "../componentes/ResumoEntradas";
 import { AVISO_SIMPLES } from "../componentes/SalvarCenario";
@@ -42,6 +44,7 @@ function MensagemRecalculo({ erro }: { erro: ErroApi | Error }) {
     codigo === "MOTOR_INDISPONIVEL" ? " Inicie os motores com scripts/iniciar.bat e tente de novo." : "";
   return (
     <div role="alert" className="mensagem-erro">
+      <Icone de={CircleAlert} />
       <strong>Não foi possível recalcular.</strong> <span>{erro.message}</span>
       {dica}
       <p className="dica">As versões anteriores continuam como estavam.</p>
@@ -192,24 +195,37 @@ export function PaginaEmpresaDetalhe() {
   if (erro) {
     return (
       <section>
-        <p>
-          <Link to="/empresas">← Empresas</Link>
+        <p className="trilha">
+          <Link to="/empresas">
+            <Icone de={ArrowLeft} />
+            Empresas
+          </Link>
         </p>
         <div role="alert" className="mensagem-erro">
+          <Icone de={CircleAlert} />
           {erro}
         </div>
       </section>
     );
   }
-  if (!empresa || cenarios === null) return <p className="dica">Carregando…</p>;
+  if (!empresa || cenarios === null)
+    return (
+      <p className="dica carregando">
+        <Icone de={LoaderCircle} className="girando" />
+        Carregando…
+      </p>
+    );
 
   const grupos = new Map<string, Cenario[]>();
   for (const c of cenarios) grupos.set(c.nome, [...(grupos.get(c.nome) ?? []), c]);
 
   return (
     <section>
-      <p>
-        <Link to="/empresas">← Empresas</Link>
+      <p className="trilha">
+        <Link to="/empresas">
+          <Icone de={ArrowLeft} />
+          Empresas
+        </Link>
       </p>
       <h1>{empresa.razaoSocial}</h1>
       <dl className="dados-empresa">
@@ -230,15 +246,19 @@ export function PaginaEmpresaDetalhe() {
       </dl>
       {empresa.regimeAtual === "simples" && (
         <p role="alert" className="mensagem-erro aviso-simples">
+          <Icone de={TriangleAlert} />
           {AVISO_SIMPLES}
         </p>
       )}
 
       <h2>Cenários salvos</h2>
       {grupos.size === 0 && (
-        <p>
-          Nenhum cenário salvo. Simule uma operação no <Link to="/">Simulador</Link> e use “Salvar como cenário”.
-        </p>
+        <div className="vazio">
+          <Icone de={FolderOpen} />
+          <p>
+            Nenhum cenário salvo. Simule uma operação no <Link to="/">Simulador</Link> e use “Salvar como cenário”.
+          </p>
+        </div>
       )}
       {[...grupos.entries()].map(([nome, versoes]) => (
         <div key={nome} className="grupo-cenario">
@@ -263,14 +283,21 @@ export function PaginaEmpresaDetalhe() {
         </div>
       ))}
 
-      {abrindo && <p className="dica">Abrindo o cenário…</p>}
+      {abrindo && (
+        <p className="dica carregando">
+          <Icone de={LoaderCircle} className="girando" />
+          Abrindo o cenário…
+        </p>
+      )}
       {erroAbrir && (
         <div role="alert" className="mensagem-erro">
+          <Icone de={CircleAlert} />
           {erroAbrir}
         </div>
       )}
       {aviso && (
-        <p role="status" className="dica">
+        <p role="status" className="mensagem-ok">
+          <Icone de={CircleCheck} />
           {aviso}
         </p>
       )}
@@ -279,10 +306,12 @@ export function PaginaEmpresaDetalhe() {
       {aberto && (
         <div ref={resultadoRef}>
           <p aria-label="Selo do resultado congelado" className="selo">
+            <Icone de={Lock} />
             {`Resultado congelado em ${dataHoraBrasilia(aberto.criadoEm)} · versão ${aberto.versaoNumero} · motor: ${aberto.versaoMotor} · premissas: ${descreverPremissas(aberto, conjuntos)}`}
           </p>
           <div className="acoes">
             <button type="button" disabled={recalculando} onClick={() => void recalcular(aberto)}>
+              <Icone de={RefreshCw} className={recalculando ? "girando" : undefined} />
               {recalculando ? "Recalculando…" : "Recalcular"}
             </button>{" "}
             <span className="dica">

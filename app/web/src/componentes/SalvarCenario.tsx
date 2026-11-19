@@ -1,3 +1,4 @@
+import { CircleAlert, CircleCheck, LoaderCircle, Save, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ResultadoOperacao } from "../../../server/src/dominio/tipos";
@@ -7,6 +8,7 @@ import { cliente } from "../api/cliente";
 import { formatarCnpj, formatarDecimalBR } from "../formatacao";
 import { totaisDe, type Totais } from "../simulador/resultado";
 import { Campo } from "./Campo";
+import { Icone } from "./Icone";
 
 interface Props {
   /** A última simulação bem-sucedida: é ela (e não o formulário atual) que será salva. */
@@ -98,9 +100,15 @@ export function SalvarCenario({ requisicao, exibido }: Props) {
         Ao salvar, a operação simulada acima (e o conjunto de premissas escolhido nela), mesmo que você altere o formulário
         depois, é executada de novo no motor com as premissas atuais, e é o resultado dessa nova execução que fica gravado.
       </p>
-      {empresas === null && <p className="dica">Carregando empresas…</p>}
+      {empresas === null && (
+        <p className="dica carregando">
+          <Icone de={LoaderCircle} className="girando" />
+          Carregando empresas…
+        </p>
+      )}
       {erroEmpresas && (
-        <p role="status" className="dica">
+        <p role="status" className="dica nota">
+          <Icone de={TriangleAlert} />
           Não foi possível carregar as empresas: {erroEmpresas}
         </p>
       )}
@@ -126,6 +134,7 @@ export function SalvarCenario({ requisicao, exibido }: Props) {
             </Campo>
             {empresaEscolhida?.regimeAtual === "simples" && (
               <p role="alert" className="mensagem-erro aviso-simples">
+                <Icone de={TriangleAlert} />
                 {AVISO_SIMPLES}
               </p>
             )}
@@ -135,6 +144,7 @@ export function SalvarCenario({ requisicao, exibido }: Props) {
           </div>
           <div className="acoes">
             <button type="submit" disabled={salvando}>
+              <Icone de={salvando ? LoaderCircle : Save} className={salvando ? "girando" : undefined} />
               {salvando ? "Salvando…" : "Salvar cenário"}
             </button>
           </div>
@@ -142,23 +152,28 @@ export function SalvarCenario({ requisicao, exibido }: Props) {
       )}
       {erroSalvar && (
         <div role="alert" className="mensagem-erro">
+          <Icone de={CircleAlert} />
           <strong>Não foi possível salvar o cenário.</strong> <span>{erroSalvar}</span>
         </div>
       )}
       {salvo && (
-        <div role="status">
-          <p>
-            Cenário “{salvo.nome}” salvo (versão {salvo.versao}).{" "}
-            <Link to={`/empresas/${salvo.empresaId}?cenario=${salvo.cenarioId}`}>Abrir o cenário salvo</Link>
-          </p>
-          <p aria-label="Totais salvos">
-            Totais gravados: CBS {fmt(salvo.totais.cbs)} · IBS {fmt(salvo.totais.ibs)} · IS {fmt(salvo.totais.is)}
-          </p>
-          {exibido && !mesmosTotais(salvo.totais, totaisDe(exibido)) && (
-            <p className="mensagem-erro">
-              O resultado salvo difere do exibido acima (premissas ou motor mudaram desde a simulação).
+        <div role="status" className="mensagem-ok">
+          <Icone de={CircleCheck} />
+          <div>
+            <p>
+              Cenário “{salvo.nome}” salvo (versão {salvo.versao}).{" "}
+              <Link to={`/empresas/${salvo.empresaId}?cenario=${salvo.cenarioId}`}>Abrir o cenário salvo</Link>
             </p>
-          )}
+            <p aria-label="Totais salvos">
+              Totais gravados: CBS {fmt(salvo.totais.cbs)} · IBS {fmt(salvo.totais.ibs)} · IS {fmt(salvo.totais.is)}
+            </p>
+            {exibido && !mesmosTotais(salvo.totais, totaisDe(exibido)) && (
+              <p className="mensagem-erro">
+                <Icone de={TriangleAlert} />
+                O resultado salvo difere do exibido acima (premissas ou motor mudaram desde a simulação).
+              </p>
+            )}
+          </div>
         </div>
       )}
     </section>

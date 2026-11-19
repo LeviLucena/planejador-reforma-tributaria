@@ -1,0 +1,171 @@
+/*
+ * Tokens do design: cor, tipo, espaço, raio, elevação, movimento e foco.
+ * Componentes usam só as variáveis semânticas (--cor-*), nunca hex direto.
+ * Esquema escuro: redefine as mesmas variáveis em prefers-color-scheme: dark.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Marca */
+  --cor-tinta: #0e2138;          /* azul-marinho do cabeçalho e do painel de totais */
+  --cor-tinta-2: #183252;
+  --cor-tinta-texto: #ffffff;
+  --cor-tinta-suave: #b8c5d9;
+  --cor-tinta-linha: rgba(255, 255, 255, 0.14);
+  --cor-destaque: #f2c75c;       /* âmbar da marca: aba ativa, bússola */
+
+  /* Superfícies e texto */
+  --cor-fundo: #f1f3f6;
+  --cor-superficie: #ffffff;
+  --cor-superficie-2: #f6f8fa;   /* faixas de título, zebra das tabelas */
+  --cor-superficie-3: #eceff3;
+  --cor-texto: #142033;
+  --cor-suave: #4c5869;
+  --cor-borda: #d5dbe3;
+  --cor-borda-controle: #7a879a; /* bordas de campos: >= 3:1 sobre o branco */
+
+  /* Ação */
+  --cor-primaria: #1d59c2;
+  --cor-primaria-hover: #174aa3;
+  --cor-primaria-ativa: #123c85;
+  --cor-primaria-texto: #ffffff;
+  --cor-primaria-suave: #e8f0fc;
+  --cor-link: #1b52b3;
+  --cor-foco: #1d59c2;
+
+  /* Aviso legal (âmbar) */
+  --cor-aviso-fundo: #f7d77c;
+  --cor-aviso-texto: #3a2a00;
+  --cor-aviso-borda: #d6ae42;
+
+  /* Estados */
+  --cor-ok: #17703a;
+  --cor-ok-fundo: #e5f4ea;
+  --cor-ok-borda: #8fcaa3;
+  --cor-erro: #b42318;
+  --cor-erro-fundo: #fdeceb;
+  --cor-erro-borda: #eeaaa3;
+  --cor-alerta: #8a5100;
+  --cor-alerta-fundo: #fdf1dc;
+  --cor-alerta-borda: #e2b45f;
+  --cor-info-fundo: #edf3fb;
+  --cor-info-borda: #bcd0ec;
+
+  /* Selos de origem das premissas (também distintos pelo estilo da borda) */
+  --cor-origem-oficial: #14451a;
+  --cor-origem-oficial-fundo: #e3f4e4;
+  --cor-origem-oficial-borda: #1b5e20;
+  --cor-origem-lei: #0b2f5e;
+  --cor-origem-lei-fundo: #e1ecfa;
+  --cor-origem-lei-borda: #0d3c75;
+  --cor-origem-usuario: #4a1466;
+  --cor-origem-usuario-fundo: #f3e5f9;
+  --cor-origem-usuario-borda: #6a1b9a;
+
+  /* Tipografia (Inter empacotada pelo Vite; sem fonte externa) */
+  --fonte: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --texto-xs: 0.75rem;   /* 12 */
+  --texto-sm: 0.8125rem; /* 13 */
+  --texto-md: 0.9375rem; /* 15: corpo */
+  --texto-lg: 1.0625rem; /* 17 */
+  --texto-xl: 1.25rem;   /* 20 */
+  --texto-2xl: 1.625rem; /* 26 */
+  --texto-3xl: 2.125rem; /* 34: números dos totais */
+  --peso-normal: 420;
+  --peso-medio: 540;
+  --peso-forte: 640;
+
+  /* Espaço (passo de 4px) */
+  --e-1: 0.25rem;
+  --e-2: 0.5rem;
+  --e-3: 0.75rem;
+  --e-4: 1rem;
+  --e-5: 1.25rem;
+  --e-6: 1.5rem;
+  --e-8: 2rem;
+  --e-10: 2.5rem;
+  --largura-conteudo: 72rem;
+
+  /* Raio: controles < cartões < painel de destaque */
+  --raio-sm: 6px;
+  --raio-md: 10px;
+  --raio-lg: 14px;
+  --raio-pilula: 999px;
+
+  /* Elevação */
+  --sombra-1: 0 1px 2px rgba(14, 33, 56, 0.06), 0 1px 1px rgba(14, 33, 56, 0.03);
+  --sombra-2: 0 4px 14px -4px rgba(14, 33, 56, 0.16), 0 1px 2px rgba(14, 33, 56, 0.06);
+
+  /* Movimento */
+  --duracao: 160ms;
+  --curva: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Foco */
+  --anel-foco: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 35%, transparent);
+
+  /* Camadas */
+  --z-fixo: 20;
+  --z-pular: 40;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-tinta: #0a1626;
+    --cor-tinta-2: #142338;
+    --cor-tinta-texto: #f1f5fb;
+    --cor-tinta-suave: #a9b7cc;
+    --cor-tinta-linha: rgba(255, 255, 255, 0.12);
+
+    --cor-fundo: #0d141f;
+    --cor-superficie: #141d2b;
+    --cor-superficie-2: #182335;
+    --cor-superficie-3: #1e2a3d;
+    --cor-texto: #e4e9f1;
+    --cor-suave: #a3aec0;
+    --cor-borda: #2a3850;
+    --cor-borda-controle: #6b7a92;
+
+    --cor-primaria: #6aa2ff;
+    --cor-primaria-hover: #86b4ff;
+    --cor-primaria-ativa: #a2c6ff;
+    --cor-primaria-texto: #081322;
+    --cor-primaria-suave: #18294a;
+    --cor-link: #8cb8ff;
+    --cor-foco: #8cb8ff;
+
+    --cor-aviso-fundo: #3d2f0c;
+    --cor-aviso-texto: #f6dc90;
+    --cor-aviso-borda: #6e561b;
+
+    --cor-ok: #79d595;
+    --cor-ok-fundo: #12301e;
+    --cor-ok-borda: #2f6a43;
+    --cor-erro: #ff9d92;
+    --cor-erro-fundo: #3a1714;
+    --cor-erro-borda: #7a3029;
+    --cor-alerta: #f2bf62;
+    --cor-alerta-fundo: #33260c;
+    --cor-alerta-borda: #6d5320;
+    --cor-info-fundo: #15233a;
+    --cor-info-borda: #2c4469;
+
+    --cor-origem-oficial: #b9ecc0;
+    --cor-origem-oficial-fundo: #17331b;
+    --cor-origem-oficial-borda: #7fd48a;
+    --cor-origem-lei: #bcd6f6;
+    --cor-origem-lei-fundo: #14283f;
+    --cor-origem-lei-borda: #7fb0ea;
+    --cor-origem-usuario: #e6c9f3;
+    --cor-origem-usuario-fundo: #2c1a36;
+    --cor-origem-usuario-borda: #cf9be6;
+
+    --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --sombra-2: 0 6px 18px -6px rgba(0, 0, 0, 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duracao: 0ms;
+  }
+}

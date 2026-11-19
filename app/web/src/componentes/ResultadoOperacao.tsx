@@ -1,8 +1,10 @@
+import { ChevronRight, CircleCheck, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import type { Fundamentacao, ItemEntrada, ObjetoResultado } from "../../../server/src/dominio/tipos";
 import type { RespostaSimulacao } from "../../../server/src/simulacao/servico";
 import { formatarDecimalBR } from "../formatacao";
 import { memoriasDoItem, totaisDe, valoresDoItem } from "../simulador/resultado";
+import { Icone } from "./Icone";
 
 export const ROTULO_ORIGEM: Record<string, string> = {
   oficial: "oficial",
@@ -32,11 +34,14 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
   const calculado = objeto.estadoItem === "CALCULO_SIMULADO";
   const idDetalhe = `detalhe-item-${objeto.nObj}`;
   return (
-    <article className="item-resultado" aria-label={`Item ${objeto.nObj}`}>
+    <article className={`item-resultado${calculado ? "" : " com-erro"}`} aria-label={`Item ${objeto.nObj}`}>
       <header>
         <h3>Item {objeto.nObj}</h3>
         {cClassTrib && <span className="dica">cClassTrib {cClassTrib}</span>}
-        <span className={`etiqueta ${calculado ? "ok" : "alerta"}`}>{objeto.estadoItem}</span>
+        <span className={`etiqueta ${calculado ? "ok" : "erro"}`}>
+          <Icone de={calculado ? CircleCheck : TriangleAlert} />
+          {objeto.estadoItem}
+        </span>
       </header>
 
       {objeto.erros && objeto.erros.length > 0 && (
@@ -55,22 +60,22 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
           <table>
             <thead>
               <tr>
-                <th scope="col">Base (vBC)</th>
-                <th scope="col">CBS (vCBS)</th>
-                <th scope="col">IBS estadual</th>
-                <th scope="col">IBS municipal</th>
-                <th scope="col">IBS total</th>
-                {v.is !== undefined && <th scope="col">Imposto Seletivo</th>}
+                <th scope="col" className="num">Base (vBC)</th>
+                <th scope="col" className="num">CBS (vCBS)</th>
+                <th scope="col" className="num">IBS estadual</th>
+                <th scope="col" className="num">IBS municipal</th>
+                <th scope="col" className="num">IBS total</th>
+                {v.is !== undefined && <th scope="col" className="num">Imposto Seletivo</th>}
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>{brl(v.base)}</td>
-                <td>{brl(v.cbs)}</td>
-                <td>{brl(v.ibsUf)}</td>
-                <td>{brl(v.ibsMun)}</td>
-                <td>{brl(v.ibs)}</td>
-                {v.is !== undefined && <td>{brl(v.is)}</td>}
+                <td className="num">{brl(v.base)}</td>
+                <td className="num">{brl(v.cbs)}</td>
+                <td className="num">{brl(v.ibsUf)}</td>
+                <td className="num">{brl(v.ibsMun)}</td>
+                <td className="num">{brl(v.ibs)}</td>
+                {v.is !== undefined && <td className="num">{brl(v.is)}</td>}
               </tr>
             </tbody>
           </table>
@@ -79,8 +84,15 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
 
       {(memorias.length > 0 || legais.length > 0 || calculado) && (
         <>
-          <button type="button" className="secundario" aria-expanded={aberto} aria-controls={idDetalhe} onClick={() => setAberto(!aberto)}>
-            {aberto ? "▾" : "▸"} Memória de cálculo e fundamentação legal
+          <button
+            type="button"
+            className="fantasma alternar-detalhe"
+            aria-expanded={aberto}
+            aria-controls={idDetalhe}
+            onClick={() => setAberto(!aberto)}
+          >
+            <Icone de={ChevronRight} />
+            Memória de cálculo e fundamentação legal
           </button>
           {aberto && (
             <div id={idDetalhe} className="detalhe-item">
@@ -94,7 +106,12 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
               <h4>Fundamentação legal</h4>
               {reaberto ? (
                 <>
-                  {carregandoFundamentacoes && <p className="dica">Consultando fundamentação legal…</p>}
+                  {carregandoFundamentacoes && (
+                    <p className="dica carregando">
+                      <Icone de={LoaderCircle} className="girando" />
+                      Consultando fundamentação legal…
+                    </p>
+                  )}
                   {!carregandoFundamentacoes && fundamentacoes === null && (
                     <p className="dica">
                       Não foi possível consultar a fundamentação legal agora (o motor oficial pode estar desligado). Ela não é guardada no
@@ -112,7 +129,12 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
                 </>
               ) : (
                 <>
-                {carregandoFundamentacoes && <p className="dica">Carregando fundamentação…</p>}
+                {carregandoFundamentacoes && (
+                  <p className="dica carregando">
+                    <Icone de={LoaderCircle} className="girando" />
+                    Carregando fundamentação…
+                  </p>
+                )}
                 {!carregandoFundamentacoes && fundamentacoes === null && (
                   <p className="dica">Fundamentação legal indisponível no momento.</p>
                 )}
@@ -217,7 +239,10 @@ export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamen
           </>
         )}
       </section>
-      <p className="dica motor-usado">Cálculo feito pelo motor oficial do regime regular.</p>
+      <p className="dica nota motor-usado">
+        <Icone de={Info} />
+        Cálculo feito pelo motor oficial do regime regular.
+      </p>
 
       <h3>Itens</h3>
       {resposta.resultado.objetos.map((o) => (

@@ -1,9 +1,11 @@
+import { Calculator, CircleAlert, FileCheck2, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Fundamentacao, SituacaoTributaria } from "../../../server/src/dominio/tipos";
 import type { ConjuntoResumo } from "../../../server/src/premissas/repositorio";
 import type { RequisicaoSimulacao, RespostaSimulacao } from "../../../server/src/simulacao/servico";
 import { cliente, ErroApi } from "../api/cliente";
 import { Campo } from "../componentes/Campo";
+import { Icone } from "../componentes/Icone";
 import { ResultadoOperacao } from "../componentes/ResultadoOperacao";
 import { TabelaItens } from "../componentes/TabelaItens";
 import exemploOficial from "../exemplos/operacao-oficial.json";
@@ -43,6 +45,7 @@ function MensagemErro({ erro }: { erro: ErroApi }) {
   }
   return (
     <div role="alert" className="mensagem-erro">
+      <Icone de={CircleAlert} />
       <strong>Não foi possível simular.</strong> <span>{corpo}</span>
     </div>
   );
@@ -176,18 +179,23 @@ export function PaginaSimulador({ aoSimular, aoIniciar }: Props) {
 
   return (
     <section>
-      <h1>Simulador de operação</h1>
-      <p className="dica">
-        Informe a operação e os itens para calcular CBS, IBS e Imposto Seletivo com o motor oficial da Receita.
-      </p>
-
-      <form ref={formRef} onSubmit={simular} noValidate>
-        <div className="barra-exemplo">
+      <div className="cabecalho-pagina">
+        <div>
+          <h1>Simulador de operação</h1>
+          <p className="dica">
+            Informe a operação e os itens para calcular CBS, IBS e Imposto Seletivo com o motor oficial da Receita.
+          </p>
+        </div>
+        <div className="acao-pagina barra-exemplo">
           <button type="button" className="secundario" onClick={carregarExemplo}>
+            <Icone de={FileCheck2} />
             Carregar exemplo oficial da Receita
           </button>
           <span className="dica">Preenche o formulário com o exemplo oficial da documentação da Receita (4 itens).</span>
         </div>
+      </div>
+
+      <form ref={formRef} onSubmit={simular} noValidate>
 
         <fieldset className="bloco">
           <legend>Operação</legend>
@@ -228,13 +236,17 @@ export function PaginaSimulador({ aoSimular, aoIniciar }: Props) {
             </Campo>
           </div>
           {conjunto && !conjunto.validadoPor && (
-            <p>
-              <span className="etiqueta alerta">pendente de validação</span>{" "}
+            <p className="status-conjunto">
+              <span className="etiqueta alerta">
+                <Icone de={TriangleAlert} />
+                pendente de validação
+              </span>{" "}
               <span className="dica">As alíquotas deste conjunto ainda não foram validadas por uma pessoa.</span>
             </p>
           )}
           {semConjuntos && (
             <p role="status" className="mensagem-erro">
+              <Icone de={CircleAlert} />
               {erroConjuntos ? `Não foi possível carregar os conjuntos de premissas: ${erroConjuntos} ` : ""}
               Nenhum conjunto de premissas cadastrado. Para simular é preciso ter premissas de alíquotas: cadastre-as na
               página Premissas.
@@ -244,7 +256,8 @@ export function PaginaSimulador({ aoSimular, aoIniciar }: Props) {
 
         <h2>Itens</h2>
         {erroClassificacoes && (
-          <p role="status" className="dica">
+          <p role="status" className="nota dica">
+            <Icone de={TriangleAlert} />
             Não foi possível carregar as listas de CST e cClassTrib. Digite os códigos à mão (CST com 3 dígitos e
             cClassTrib com 6).
           </p>
@@ -261,15 +274,19 @@ export function PaginaSimulador({ aoSimular, aoIniciar }: Props) {
           onRemover={(chave) => setForm((f) => ({ ...f, itens: f.itens.filter((it) => it.chave !== chave) }))}
         />
 
-        {mensagensDeErro > 0 && (
-          <p className="mensagem-erro" role="status">
-            Corrija os {mensagensDeErro} campo(s) destacado(s) antes de simular.
-          </p>
-        )}
-        <div className="acoes">
-          <button type="submit" disabled={simulando || conjuntos === null || semConjuntos}>
-            {simulando ? "Simulando…" : "Simular"}
-          </button>
+        <div className="barra-simular">
+          {mensagensDeErro > 0 && (
+            <p className="mensagem-erro" role="status">
+              <Icone de={CircleAlert} />
+              Corrija os {mensagensDeErro} campo(s) destacado(s) antes de simular.
+            </p>
+          )}
+          <div className="acoes">
+            <button type="submit" className="grande" disabled={simulando || conjuntos === null || semConjuntos}>
+              <Icone de={simulando ? LoaderCircle : Calculator} className={simulando ? "girando" : undefined} />
+              {simulando ? "Simulando…" : "Simular"}
+            </button>
+          </div>
         </div>
       </form>
 

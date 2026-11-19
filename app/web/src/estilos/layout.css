@@ -1,0 +1,242 @@
+/* Estrutura: cabeçalho, aviso legal, conteúdo e cabeçalho de página. */
+
+.pular {
+  position: absolute;
+  left: var(--e-4);
+  top: -4rem;
+  z-index: var(--z-pular);
+  padding: var(--e-2) var(--e-4);
+  border-radius: var(--raio-sm);
+  background: var(--cor-superficie);
+  color: var(--cor-link);
+  font-weight: var(--peso-medio);
+  box-shadow: var(--sombra-2);
+}
+.pular:focus {
+  top: var(--e-2);
+}
+
+/* Cabeçalho + aviso: fixos no topo em telas largas; no celular rolam junto (não roubam altura). */
+.cabecalho-fixo {
+  position: relative;
+  z-index: var(--z-fixo);
+}
+@media (min-width: 48rem) {
+  .cabecalho-fixo {
+    position: sticky;
+    top: 0;
+  }
+  /* Rolagem por âncora/foco não esconde o alvo atrás do cabeçalho fixo. */
+  html {
+    scroll-padding-top: 7rem;
+  }
+}
+
+.topo {
+  background: var(--cor-tinta);
+  color: var(--cor-tinta-texto);
+  border-bottom: 1px solid var(--cor-tinta-linha);
+}
+.topo-interno {
+  max-width: var(--largura-conteudo);
+  margin: 0 auto;
+  padding: 0 var(--e-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: space-between;
+  column-gap: var(--e-6);
+}
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-3);
+  min-height: 3.5rem;
+  font-weight: var(--peso-forte);
+  font-size: var(--texto-lg);
+  letter-spacing: -0.01em;
+  color: var(--cor-tinta-texto);
+}
+.marca-simbolo {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.topo nav {
+  display: flex;
+  align-items: stretch;
+  gap: var(--e-1);
+}
+.topo nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: 3rem;
+  padding: 0 var(--e-3);
+  color: var(--cor-tinta-suave);
+  text-decoration: none;
+  font-weight: var(--peso-medio);
+  font-size: var(--texto-md);
+  border-radius: var(--raio-sm) var(--raio-sm) 0 0;
+  transition: color var(--duracao) var(--curva), background-color var(--duracao) var(--curva);
+}
+.topo nav a::after {
+  content: "";
+  position: absolute;
+  left: var(--e-3);
+  right: var(--e-3);
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+  transition: background-color var(--duracao) var(--curva);
+}
+.topo nav a:hover {
+  color: var(--cor-tinta-texto);
+  background: rgba(255, 255, 255, 0.06);
+}
+.topo nav a.active {
+  color: var(--cor-tinta-texto);
+}
+.topo nav a.active::after {
+  background: var(--cor-destaque);
+}
+.topo nav a:focus-visible {
+  outline: 2px solid var(--cor-tinta-texto);
+  outline-offset: -4px;
+}
+.topo nav .icone {
+  opacity: 0.85;
+}
+
+/* Celular: marca em cima, abas ocupando a largura toda embaixo. */
+@media (max-width: 40rem) {
+  .topo-interno {
+    padding: 0 var(--e-3);
+  }
+  .marca {
+    min-height: 3rem;
+    font-size: var(--texto-md);
+  }
+  .marca-simbolo {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  .topo nav {
+    width: 100%;
+    margin: 0 calc(-1 * var(--e-1));
+  }
+  .topo nav a {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0 var(--e-2);
+  }
+}
+
+.aviso-simulacao {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  padding: var(--e-2) var(--e-4);
+  background: var(--cor-aviso-fundo);
+  color: var(--cor-aviso-texto);
+  border-bottom: 1px solid var(--cor-aviso-borda);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.aviso-simulacao .icone {
+  width: 1rem;
+  height: 1rem;
+}
+
+.conteudo {
+  max-width: var(--largura-conteudo);
+  margin: 0 auto;
+  padding: var(--e-8) var(--e-4) var(--e-10);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 40rem) {
+  .conteudo {
+    padding: var(--e-5) var(--e-3) var(--e-8);
+  }
+}
+
+/* Título da página com a ação principal à direita (quando houver). */
+.cabecalho-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-4) var(--e-6);
+  margin-bottom: var(--e-6);
+}
+.cabecalho-pagina > div:first-child {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+.cabecalho-pagina h1 + .dica {
+  margin-top: var(--e-2);
+  max-width: 62ch;
+  font-size: var(--texto-md);
+}
+.acao-pagina {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--e-1);
+  flex: 0 1 20rem;
+  text-align: right;
+}
+.acao-pagina .dica {
+  margin: 0;
+  max-width: 20rem;
+}
+@media (max-width: 40rem) {
+  .acao-pagina {
+    flex-basis: 100%;
+    align-items: stretch;
+    text-align: left;
+  }
+  .acao-pagina .dica {
+    max-width: none;
+  }
+}
+
+/* Trilha (voltar) na página de detalhe. */
+.trilha {
+  margin: 0 0 var(--e-3);
+  font-size: var(--texto-sm);
+}
+.trilha a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+  min-height: 2rem;
+  font-weight: var(--peso-medio);
+  text-decoration: none;
+}
+.trilha a:hover {
+  text-decoration: underline;
+}
+
+/* Cabeçalho de seção (título + ação). */
+.cabecalho-secao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-4);
+  margin: var(--e-8) 0 var(--e-3);
+}
+.cabecalho-secao h2 {
+  margin: 0;
+}

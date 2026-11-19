@@ -1,8 +1,10 @@
+import { Building2, CircleAlert, CircleCheck, LoaderCircle, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Empresa, RegimeAtual } from "../../../server/src/empresas/repositorio";
 import { cliente } from "../api/cliente";
 import { Campo } from "../componentes/Campo";
+import { Icone } from "../componentes/Icone";
 import { formatarCnpj } from "../formatacao";
 import { UFS } from "../simulador/modelo";
 
@@ -144,8 +146,12 @@ export function PaginaEmpresas() {
 
   return (
     <section>
-      <h1>Empresas</h1>
-      <p className="dica">Cadastre as empresas para guardar cenários de simulação e acompanhar as versões de cada um.</p>
+      <div className="cabecalho-pagina">
+        <div>
+          <h1>Empresas</h1>
+          <p className="dica">Cadastre as empresas para guardar cenários de simulação e acompanhar as versões de cada um.</p>
+        </div>
+      </div>
 
       <form ref={formRef} onSubmit={enviar} noValidate aria-label={editando ? "Editar empresa" : "Nova empresa"}>
         <fieldset className="bloco">
@@ -190,18 +196,21 @@ export function PaginaEmpresas() {
         </fieldset>
         {Object.keys(erros).length > 0 && (
           <p className="mensagem-erro" role="status">
+            <Icone de={CircleAlert} />
             Corrija os {Object.keys(erros).length} campo(s) destacado(s) antes de continuar.
           </p>
         )}
         {erroServidor && (
           <div role="alert" className="mensagem-erro">
+            <Icone de={CircleAlert} />
             <strong>Não foi possível salvar a empresa.</strong> <span>{erroServidor}</span>
           </div>
         )}
         <div className="acoes">
           <button type="submit" disabled={salvando}>
+            <Icone de={salvando ? LoaderCircle : editando ? Save : Plus} className={salvando ? "girando" : undefined} />
             {salvando ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar empresa"}
-          </button>{" "}
+          </button>
           {editando && (
             <button type="button" className="secundario" onClick={cancelarEdicao}>
               Cancelar edição
@@ -211,7 +220,8 @@ export function PaginaEmpresas() {
       </form>
 
       {aviso && (
-        <p role="status" className="dica">
+        <p role="status" className="mensagem-ok">
+          <Icone de={CircleCheck} />
           {aviso}
         </p>
       )}
@@ -219,16 +229,29 @@ export function PaginaEmpresas() {
       <h2>Empresas cadastradas</h2>
       {erroLista && (
         <div role="alert" className="mensagem-erro">
+          <Icone de={CircleAlert} />
           Não foi possível carregar as empresas: {erroLista}
         </div>
       )}
       {erroExcluir && (
         <div role="alert" className="mensagem-erro">
+          <Icone de={CircleAlert} />
           <strong>Não foi possível excluir.</strong> <span>{erroExcluir}</span>
         </div>
       )}
-      {empresas === null && <p className="dica">Carregando…</p>}
-      {empresas !== null && empresas.length === 0 && !erroLista && <p>Nenhuma empresa cadastrada.</p>}
+      {empresas === null && (
+        <p className="dica carregando">
+          <Icone de={LoaderCircle} className="girando" />
+          Carregando…
+        </p>
+      )}
+      {empresas !== null && empresas.length === 0 && !erroLista && (
+        <div className="vazio">
+          <Icone de={Building2} />
+          <p>Nenhuma empresa cadastrada.</p>
+          <p className="dica">Use o formulário acima para cadastrar a primeira.</p>
+        </div>
+      )}
       {empresas !== null && empresas.length > 0 && (
         <div className="tabela-rolagem">
           <table aria-label="Empresas cadastradas" className="tabela-texto">
@@ -260,8 +283,9 @@ export function PaginaEmpresas() {
                           desfeita.
                         </p>
                         <button type="button" className="perigo" disabled={excluindo} onClick={() => void excluir(e)}>
+                          <Icone de={excluindo ? LoaderCircle : Trash2} className={excluindo ? "girando" : undefined} />
                           {excluindo ? "Excluindo…" : "Confirmar exclusão"}
-                        </button>{" "}
+                        </button>
                         <button type="button" className="secundario" disabled={excluindo} onClick={() => setConfirmando(null)}>
                           Cancelar exclusão
                         </button>
@@ -270,7 +294,7 @@ export function PaginaEmpresas() {
                       <>
                         <button
                           type="button"
-                          className="secundario"
+                          className="fantasma"
                           aria-label={`Editar ${e.razaoSocial}`}
                           onClick={() => {
                             setEditando(e);
@@ -281,17 +305,19 @@ export function PaginaEmpresas() {
                             formRef.current?.scrollIntoView?.({ block: "start" });
                           }}
                         >
+                          <Icone de={Pencil} />
                           Editar
-                        </button>{" "}
+                        </button>
                         <button
                           type="button"
-                          className="secundario"
+                          className="fantasma perigo-texto"
                           aria-label={`Excluir ${e.razaoSocial}`}
                           onClick={() => {
                             setConfirmando(e.id);
                             setErroExcluir(null);
                           }}
                         >
+                          <Icone de={Trash2} />
                           Excluir
                         </button>
                       </>

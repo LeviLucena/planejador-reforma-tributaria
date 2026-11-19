@@ -1,3 +1,18 @@
+import {
+  CircleAlert,
+  CircleCheck,
+  Clock,
+  Copy,
+  Inbox,
+  Landmark,
+  LoaderCircle,
+  Lock,
+  Plus,
+  Scale,
+  ShieldCheck,
+  Upload,
+  User,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ConjuntoResumo,
@@ -8,6 +23,7 @@ import type {
 } from "../../../server/src/premissas/repositorio";
 import { cliente } from "../api/cliente";
 import { Campo } from "../componentes/Campo";
+import { Icone } from "../componentes/Icone";
 import { ROTULO_ORIGEM } from "../componentes/ResultadoOperacao";
 import { ERRO_NAO_NUMERICO, lerDecimal } from "../decimais";
 import { dataBR, dataBrasilia, formatarDecimalBR } from "../formatacao";
@@ -27,17 +43,29 @@ function lerTexto(arquivo: File): Promise<string> {
   });
 }
 
+const ICONE_ORIGEM = { oficial: Landmark, lei_transicao: Scale, usuario: User } as const;
+
 function Origem({ origem }: { origem: string }) {
-  return <span className={`etiqueta origem-${origem}`}>{ROTULO_ORIGEM[origem] ?? origem}</span>;
+  const icone = ICONE_ORIGEM[origem as keyof typeof ICONE_ORIGEM];
+  return (
+    <span className={`etiqueta origem-${origem}`}>
+      {icone && <Icone de={icone} />}
+      {ROTULO_ORIGEM[origem] ?? origem}
+    </span>
+  );
 }
 
 function statusDe(c: ConjuntoResumo) {
   return c.validadoPor ? (
     <span className="etiqueta ok">
+      <Icone de={CircleCheck} />
       validado por {c.validadoPor} em {c.validadoEm ? dataBrasilia(c.validadoEm) : "data não registrada"}
     </span>
   ) : (
-    <span className="etiqueta alerta">pendente de validação</span>
+    <span className="etiqueta alerta">
+      <Icone de={Clock} />
+      pendente de validação
+    </span>
   );
 }
 
@@ -265,21 +293,54 @@ export function PaginaPremissas() {
 
   return (
     <section>
-      <h1>Premissas de alíquotas</h1>
-      <p className="dica">
-        Linhas marcadas como <Origem origem="oficial" /> ou <Origem origem="lei_transicao" /> trazem a sua fonte legal
-        (norma, artigo e data da consulta). Uma <Origem origem="usuario" /> é uma suposição sua e não tem valor oficial.
-        Um conjunto só deixa de estar pendente depois que uma pessoa o valida aqui.
-      </p>
+      <div className="cabecalho-pagina">
+        <div>
+          <h1>Premissas de alíquotas</h1>
+          <p className="dica">
+            Linhas marcadas como <Origem origem="oficial" /> ou <Origem origem="lei_transicao" /> trazem a sua fonte legal
+            (norma, artigo e data da consulta). Uma <Origem origem="usuario" /> é uma suposição sua e não tem valor oficial.
+            Um conjunto só deixa de estar pendente depois que uma pessoa o valida aqui.
+          </p>
+        </div>
+        <div className="acao-pagina">
+          <div className="botao-arquivo">
+            <label htmlFor="arquivo-premissas">
+              <Icone de={Upload} />
+              Carregar arquivo de premissas
+            </label>
+            <input id="arquivo-premissas" ref={entradaArquivo} type="file" accept=".json,application/json" onChange={aoEscolherArquivo} />
+          </div>
+        </div>
+      </div>
+      {msgCarga && (
+        <p
+          role={msgCarga.tipo === "erro" ? "alert" : "status"}
+          className={msgCarga.tipo === "erro" ? "mensagem-erro" : "mensagem-ok"}
+        >
+          <Icone de={msgCarga.tipo === "erro" ? CircleAlert : CircleCheck} />
+          {msgCarga.texto}
+        </p>
+      )}
 
       <h2>Conjuntos</h2>
       {erroLista && (
         <p role="alert" className="mensagem-erro">
+          <Icone de={CircleAlert} />
           Não foi possível carregar os conjuntos: {erroLista}
         </p>
       )}
-      {conjuntos === null && <p className="dica">Carregando…</p>}
-      {conjuntos !== null && conjuntos.length === 0 && !erroLista && <p className="dica">Nenhum conjunto cadastrado ainda.</p>}
+      {conjuntos === null && (
+        <p className="dica carregando">
+          <Icone de={LoaderCircle} className="girando" />
+          Carregando…
+        </p>
+      )}
+      {conjuntos !== null && conjuntos.length === 0 && !erroLista && (
+        <div className="vazio">
+          <Icone de={Inbox} />
+          <p className="dica">Nenhum conjunto cadastrado ainda.</p>
+        </div>
+      )}
       {conjuntos !== null && conjuntos.length > 0 && (
         <div className="tabela-rolagem">
           <table>
@@ -288,7 +349,7 @@ export function PaginaPremissas() {
               <tr>
                 <th scope="col">Conjunto</th>
                 <th scope="col">Vigência</th>
-                <th scope="col">Linhas</th>
+                <th scope="col" className="num">Linhas</th>
                 <th scope="col">Status</th>
               </tr>
             </thead>
@@ -296,12 +357,12 @@ export function PaginaPremissas() {
               {conjuntos.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <button type="button" className="secundario" aria-pressed={c.id === selecionado} onClick={() => selecionar(c.id)}>
+                    <button type="button" className="botao-linha" aria-pressed={c.id === selecionado} onClick={() => selecionar(c.id)}>
                       {c.nome}
                     </button>
                   </td>
                   <td>{vigenciaDe(c)}</td>
-                  <td>{c.linhas}</td>
+                  <td className="num">{c.linhas}</td>
                   <td>{statusDe(c)}</td>
                 </tr>
               ))}
@@ -310,15 +371,6 @@ export function PaginaPremissas() {
         </div>
       )}
 
-      <div className="acoes">
-        <label htmlFor="arquivo-premissas">Carregar arquivo de premissas</label>
-        <input id="arquivo-premissas" ref={entradaArquivo} type="file" accept=".json,application/json" onChange={aoEscolherArquivo} />
-      </div>
-      {msgCarga && (
-        <p role={msgCarga.tipo === "erro" ? "alert" : "status"} className={msgCarga.tipo === "erro" ? "mensagem-erro" : "dica"}>
-          {msgCarga.texto}
-        </p>
-      )}
 
       <form onSubmit={criar} noValidate>
         <fieldset className="bloco">
@@ -339,49 +391,71 @@ export function PaginaPremissas() {
           </div>
           {erroCriar && (
             <p role="alert" className="mensagem-erro">
+              <Icone de={CircleAlert} />
               {erroCriar}
             </p>
           )}
           <div className="acoes">
-            <button type="submit">Criar conjunto</button>
+            <button type="submit">
+              <Icone de={Plus} />
+              Criar conjunto
+            </button>
           </div>
         </fieldset>
       </form>
 
       {atual && (
         <section aria-label={`Linhas de ${atual.nome}`}>
-          <h2>Linhas de “{atual.nome}”</h2>
-          <p>
-            {statusDe(atual)} <span className="dica">Vigência: {vigenciaDe(atual)}</span>
-          </p>
-          {atual.observacao && <p className="dica">{atual.observacao}</p>}
-          <div className="acoes">
+          <div className="cabecalho-secao">
+            <h2>Linhas de “{atual.nome}”</h2>
             <button type="button" className="secundario" onClick={duplicar}>
+              <Icone de={Copy} />
               Duplicar conjunto
             </button>
           </div>
+          <p className="status-conjunto">
+            {statusDe(atual)} <span className="dica">Vigência: {vigenciaDe(atual)}</span>
+          </p>
+          {atual.observacao && <p className="dica">{atual.observacao}</p>}
           {erroDuplicar && (
             <p role="alert" className="mensagem-erro">
+              <Icone de={CircleAlert} />
               Não foi possível duplicar: {erroDuplicar}
             </p>
           )}
-          {msgDuplicar && <p role="status">{msgDuplicar}</p>}
+          {msgDuplicar && (
+            <p role="status" className="mensagem-ok">
+              <Icone de={CircleCheck} />
+              {msgDuplicar}
+            </p>
+          )}
           {erroLinhas && (
             <p role="alert" className="mensagem-erro">
+              <Icone de={CircleAlert} />
               Não foi possível carregar as linhas: {erroLinhas}
             </p>
           )}
-          {linhas === null && !erroLinhas && <p className="dica">Carregando linhas…</p>}
-          {linhas !== null && linhas.length === 0 && <p className="dica">Este conjunto ainda não tem linhas.</p>}
+          {linhas === null && !erroLinhas && (
+            <p className="dica carregando">
+              <Icone de={LoaderCircle} className="girando" />
+              Carregando linhas…
+            </p>
+          )}
+          {linhas !== null && linhas.length === 0 && (
+            <div className="vazio">
+              <Icone de={Inbox} />
+              <p className="dica">Este conjunto ainda não tem linhas.</p>
+            </div>
+          )}
           {linhas !== null && linhas.length > 0 && (
-            <div className="tabela-rolagem">
+            <div className="tabela-rolagem alta">
               <table>
                 <thead>
                   <tr>
                     <th scope="col">Tributo</th>
                     <th scope="col">UF</th>
                     <th scope="col">Município</th>
-                    <th scope="col">Alíquota (%)</th>
+                    <th scope="col" className="num">Alíquota (%)</th>
                     <th scope="col">Origem</th>
                     <th scope="col">Fonte</th>
                     <th scope="col">Consultado em</th>
@@ -393,7 +467,7 @@ export function PaginaPremissas() {
                       <td>{l.tributo}</td>
                       <td>{l.uf ?? "—"}</td>
                       <td>{l.municipioIbge ?? "—"}</td>
-                      <td>{formatarDecimalBR(l.aliquota)}</td>
+                      <td className="num">{formatarDecimalBR(l.aliquota)}</td>
                       <td>
                         <Origem origem={l.origem} />
                       </td>
@@ -410,7 +484,8 @@ export function PaginaPremissas() {
             <fieldset className="bloco" disabled={conjuntoValidado}>
               <legend>Adicionar linha</legend>
               {conjuntoValidado && (
-                <p className="dica">
+                <p className="nota dica">
+                  <Icone de={Lock} />
                   Este conjunto já foi validado e não pode ser alterado. Use “Duplicar conjunto” para criar uma versão
                   editável.
                 </p>
@@ -474,11 +549,15 @@ export function PaginaPremissas() {
               </div>
               {erroAdicionar && (
                 <p role="alert" className="mensagem-erro">
+                  <Icone de={CircleAlert} />
                   {erroAdicionar}
                 </p>
               )}
               <div className="acoes">
-                <button type="submit">Adicionar linha</button>
+                <button type="submit">
+                  <Icone de={Plus} />
+                  Adicionar linha
+                </button>
               </div>
             </fieldset>
           </form>
@@ -495,12 +574,19 @@ export function PaginaPremissas() {
               </Campo>
               {erroValidar && (
                 <p role="alert" className="mensagem-erro">
+                  <Icone de={CircleAlert} />
                   {erroValidar}
                 </p>
               )}
-              {confirmacao && <p role="status">{confirmacao}</p>}
+              {confirmacao && (
+                <p role="status" className="mensagem-ok">
+                  <Icone de={CircleCheck} />
+                  {confirmacao}
+                </p>
+              )}
               <div className="acoes">
                 <button type="submit" disabled={validador.trim() === ""}>
+                  <Icone de={ShieldCheck} />
                   Validar conjunto
                 </button>
               </div>
