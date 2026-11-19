@@ -1,0 +1,5 @@
+{
+  "name": "reforma-tributaria",
+  "private": true,
+  "workspaces": ["app/server"]
+}

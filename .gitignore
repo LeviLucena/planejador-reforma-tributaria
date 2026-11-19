@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.superpowers/
+motores/regime-regular/
+motores/simples-nacional/
+motores/*.json
+*.db
+*.db-*
+.env
