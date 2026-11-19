@@ -27,7 +27,7 @@ function descreverConjunto(id: number, conjuntos: ConjuntoResumo[] | null): stri
 function MensagemRecalculo({ erro }: { erro: ErroApi | Error }) {
   const codigo = erro instanceof ErroApi ? erro.codigo : "";
   const dica =
-    codigo === "MOTOR_INDISPONIVEL" ? " Inicie os motores (scripts/iniciar-motores.ps1) e tente de novo." : "";
+    codigo === "MOTOR_INDISPONIVEL" ? " Inicie os motores com scripts/iniciar.bat e tente de novo." : "";
   return (
     <div role="alert" className="mensagem-erro">
       <strong>Não foi possível recalcular.</strong> <span>{erro.message}</span>

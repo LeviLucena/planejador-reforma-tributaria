@@ -48,6 +48,6 @@ function Stop-ProcessoRegistrado([string]$nome, [string]$arquivo) {
         Remove-Item $arquivo -Force -ErrorAction SilentlyContinue
         Write-Host "$nome parado (PID $($proc.Id))"
     } else {
-        Write-Host "${nome}: registro obsoleto removido (o processo registrado nao existe mais; nada foi encerrado)"
+        Write-Host "${nome}: registro removido: nao foi possivel confirmar que o processo registrado e o que estes scripts iniciaram (encerrado, PID reaproveitado ou registro antigo); nada foi encerrado"
     }
 }

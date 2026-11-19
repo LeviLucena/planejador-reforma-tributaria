@@ -34,7 +34,7 @@ function MensagemErro({ erro }: { erro: ErroApi }) {
   if (erro.codigo === "MOTOR_INDISPONIVEL") {
     corpo = (
       <>
-        Os motores de cálculo não estão em execução. Para iniciá-los, rode <code>scripts/iniciar-motores.ps1</code> na
+        Os motores de cálculo não estão em execução. Para iniciá-los, execute <code>scripts/iniciar.bat</code> na
         raiz do projeto e tente simular de novo.
       </>
     );

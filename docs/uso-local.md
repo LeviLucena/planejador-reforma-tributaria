@@ -11,7 +11,8 @@ Este guia é para quem vai usar o sistema no próprio computador, sem precisar s
 - Os cálculos são feitos pelos **motores oficiais da Receita Federal** (calculadora de regime regular e
   calculadora do Simples Nacional), rodando no seu computador. O sistema não inventa fórmulas.
 - **Regras próprias ainda não existem nesta fase.** O sistema só chama os motores oficiais. Nada sai do
-  seu computador: tudo roda em `127.0.0.1` (endereço local) e não há nuvem.
+  seu computador: o servidor do app e os dois motores só aceitam conexões de `127.0.0.1` (esta máquina),
+  não ficam acessíveis pela rede e não há nuvem.
 
 ## Pré-requisitos
 
@@ -38,6 +39,12 @@ estiver faltando.
 5. Rodar o `iniciar.bat` de novo é seguro: ele não duplica nada ("já em execução").
 
 A janela do launcher pode ser fechada: o sistema continua rodando em segundo plano.
+
+Não canalize nem redirecione a saída do `iniciar.bat` num terminal (por exemplo `| more` ou `> arquivo`): os
+processos em segundo plano herdam o canal e o comando parece travado. Dar dois cliques no arquivo funciona
+normalmente. A interface é reconstruída automaticamente quando um arquivo de `app\web\src` fica mais novo que
+o último build; mudanças que essa checagem não enxerga (arquivos apagados, configuração do Vite,
+`package.json`) exigem `scripts\iniciar.bat -Reconstruir` (ou apagar a pasta `app\web\dist`).
 
 ## Como parar
 
@@ -86,7 +93,7 @@ scripts\iniciar.bat
 ```
 
 Por fim, atualize `motores\VERSOES.md` com os novos commits (`git -C motores\regime-regular rev-parse HEAD`
-e o equivalente do outro motor) e com a resposta de `http://localhost:8082/api/versao`.
+e o equivalente do outro motor) e com a resposta de `http://127.0.0.1:8082/api/versao`.
 
 ## O que significam os selos e rótulos
 
@@ -116,10 +123,15 @@ e o equivalente do outro motor) e com a resposta de `http://localhost:8082/api/v
 Em palavras simples: **quando uma regra não pode ser confirmada em fonte oficial, o sistema recusa em
 vez de chutar.** Se faltar uma alíquota, ele mostra o que falta; não preenche com estimativa.
 
+## Para quem desenvolve
+
+`npm run test:integracao` chama os motores de verdade: suba-os antes com `scripts\iniciar.bat`. `npm test` e `npm run typecheck` não precisam dos motores.
+
 ## Problemas comuns
 
 - **"Motor indisponível" / "os motores de cálculo não estão em execução"**: rode `scripts\iniciar.bat`
-  (ou `scripts\iniciar-motores.ps1`). Cenários já salvos continuam abrindo mesmo sem os motores.
+  (sobe só o que estiver parado). Para parar só os motores use `scripts\parar-motores.bat`. Cenários já
+  salvos continuam abrindo mesmo sem os motores.
 - **Porta em uso**: se outro programa usa a porta 3000, o launcher avisa. Defina outra porta antes de
   iniciar, por exemplo `set PORTA_APP=3001` no Prompt de Comando. Valor inválido (letras, vazio, fora de
   1 a 65535) gera uma mensagem de uma linha e o servidor não sobe.
@@ -145,9 +157,11 @@ teste suas**, copiadas do exemplo da documentação oficial da calculadora. **N�
 
    Esperado: as quatro linhas aparecem com o selo **premissa sua**.
 5. Em **Simulador**, clique em **Carregar exemplo oficial da Receita** e escolha o conjunto **Meu cenário
-   de teste**. Se o exemplo preencheu alíquotas próprias nos itens, limpe-as (assim o cálculo usa as
-   premissas do conjunto). Se não limpar, o resultado vem das alíquotas do próprio item e o selo
-   indicará essa origem; os totais podem diferir.
+   de teste**. O exemplo já traz as próprias alíquotas em cada item (CBS 8,8, IBS estadual
+   0,05, IBS municipal 0,05 e, no item 2, IS ad valorem 10,0). Por isso os totais saem iguais com ou sem as
+   linhas do conjunto. Para ver as premissas sendo usadas, apague os três campos de alíquota de cada item (e o
+   ad valorem do IS no item 2): campo em branco significa "usar as premissas". Ao simular, os selos **premissa
+   sua** (CBS, IBS UF, IBS município e IS) devem aparecer e os totais continuam **56,76 / 0,64 / 15,00**.
 6. Clique em **Simular**. Esperado: totais **CBS 56,76**, **IBS 0,64**, **IS 15,00**; os itens 1 a 3
    calculados e o **item 4 com o erro REG-011** (a recusa vem do motor oficial, não do sistema).
 7. Clique em **Salvar como cenário**, dê um nome e confirme. Esperado: o cenário aparece na lista da
@@ -155,8 +169,8 @@ teste suas**, copiadas do exemplo da documentação oficial da calculadora. **N�
 8. Feche o navegador e execute `scripts\parar.bat`. Esperado: "Encerrado".
 9. Execute `scripts\iniciar.bat` de novo e reabra o cenário salvo. Esperado: entradas, premissas e
    resultado **idênticos** aos do passo 6.
-10. Pare **somente os motores**: `powershell -NoProfile -File scripts\iniciar-motores.ps1 -Parar`
+10. Pare **somente os motores**: `scripts\parar-motores.bat`
     (o app continua no ar). Esperado: "regime-regular parado" e "simples-nacional parado".
 11. Atualize a página e reabra o cenário salvo. Esperado: ele ainda abre normalmente (resultado congelado).
-12. Faça uma nova simulação. Esperado: mensagem **"motor indisponível"** citando `scripts\iniciar-motores.ps1`.
+12. Faça uma nova simulação. Esperado: mensagem **"motor indisponível"** citando `scripts\iniciar.bat`.
 13. Para terminar, rode `scripts\iniciar.bat` (religa os motores) ou `scripts\parar.bat` (desliga tudo).

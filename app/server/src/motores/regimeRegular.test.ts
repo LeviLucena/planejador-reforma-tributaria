@@ -161,11 +161,11 @@ describe("corpo enviado ao motor", () => {
     expect(erro.message).toBe("x".repeat(300));
   });
 
-  it("mensagem de motor indisponível preserva a barra do caminho do script", async () => {
+  it("mensagem de motor indisponível cita scripts/iniciar.bat", async () => {
     const c = await capturar(500, "{}");
     const erro = await criarMotores({ urlRegimeRegular: c.url, urlSimples: c.url }).calcularOperacao(op).catch((e) => e);
     expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");
-    expect(erro.message).toContain("scripts\\iniciar-motores.ps1");
-    expect(erro.message).not.toContain("scripts\iniciar");
+    expect(erro.message).toContain("scripts/iniciar.bat");
+    expect(erro.message).not.toContain(".ps1");
   });
 });

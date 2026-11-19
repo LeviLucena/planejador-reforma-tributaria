@@ -15,8 +15,8 @@ $motores = Join-Path $raiz 'motores'
 . (Join-Path $PSScriptRoot 'comum.ps1')
 
 $defs = @(
-    @{ Nome = 'regime-regular';   Dir = Join-Path $motores 'regime-regular';   Jar = 'target/api-regime-geral.jar';     Porta = 8080; Health = 'http://localhost:8080/api/swagger-ui.html'; Extra = @() },
-    @{ Nome = 'simples-nacional'; Dir = Join-Path $motores 'simples-nacional'; Jar = 'target/api-simples-nacional.jar'; Porta = 8082; Health = 'http://localhost:8082/api/versao';          Extra = @('-Dserver.port=8082') }
+    @{ Nome = 'regime-regular';   Dir = Join-Path $motores 'regime-regular';   Jar = 'target/api-regime-geral.jar';     Porta = 8080; Health = 'http://127.0.0.1:8080/api/swagger-ui.html'; Extra = @() },
+    @{ Nome = 'simples-nacional'; Dir = Join-Path $motores 'simples-nacional'; Jar = 'target/api-simples-nacional.jar'; Porta = 8082; Health = 'http://127.0.0.1:8082/api/versao';          Extra = @('-Dserver.port=8082') }
 )
 
 try {
@@ -77,9 +77,10 @@ try {
         } elseif (Get-ProcessoRegistrado $arqPid) {
             Write-Host "$($d.Nome) já foi iniciado e ainda está subindo; aguardando"
         } elseif (Test-PortaEscutando $d.Porta) {
-            Write-Host "$($d.Nome): a porta $($d.Porta) já está em uso e o motor ainda não respondeu; aguardando"
+            Write-Host "ERRO: porta $($d.Porta) em uso por outro programa ($($d.Nome) não foi iniciado). Feche o programa que usa a porta e tente de novo."
+            exit 1
         } else {
-            $argsJava = @('-Dspring.profiles.active=offline') + $d.Extra + @('-jar', $d.Jar)
+            $argsJava = @('-Dspring.profiles.active=offline', '-Dserver.address=127.0.0.1') + $d.Extra + @('-jar', $d.Jar)
             $p = Start-Process -FilePath $java -ArgumentList $argsJava -WorkingDirectory $d.Dir -WindowStyle Hidden `
                  -RedirectStandardOutput (Join-Path $logDir "$($d.Nome).out.log") `
                  -RedirectStandardError  (Join-Path $logDir "$($d.Nome).err.log") -PassThru
@@ -99,6 +100,8 @@ try {
             if (-not (Get-ProcessoRegistrado $arqPid) -and -not (Test-PortaEscutando $d.Porta)) { $estado = 'morreu'; break }
             Start-Sleep -Seconds 2
         }
+        # Orçamento de espera é compartilhado: confere uma última vez antes de declarar falha.
+        if ($estado -eq 'tempo' -and (Test-Saude $d.Health)) { $estado = 'ok' }
         switch ($estado) {
             'ok'     { Write-Host "$($d.Nome) OK" }
             'morreu' { Write-Host "$($d.Nome): o processo encerrou antes de responder. Veja scripts/.logs/$($d.Nome).err.log"; $falhou = $true }

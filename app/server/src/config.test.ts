@@ -10,7 +10,7 @@ describe("lerPorta", () => {
     expect(lerPorta("3999")).toBe(3999);
     expect(lerPorta("65535")).toBe(65535);
   });
-  for (const ruim of ["", "0", "65536", "70000", "abc", "-1", "3.5", "3000x", " 80", "1e3"]) {
+  for (const ruim of ["", "0", "65536", "70000", "abc", "-1", "3.5", "3000x", " 80", "1e3", "0x50", "+80"]) {
     it(`rejeita "${ruim}" com mensagem em português`, () => {
       expect(() => lerPorta(ruim)).toThrowError(/PORTA_APP inválida/);
     });

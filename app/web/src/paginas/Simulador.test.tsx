@@ -301,7 +301,7 @@ describe("estados de erro", () => {
   it("MOTOR_INDISPONIVEL explica como iniciar os motores", async () => {
     const alerta = await simularComErro(503, { codigo: "MOTOR_INDISPONIVEL", mensagem: "Motor fora." });
     expect(alerta).toHaveTextContent(/motores de cálculo não estão em execução/i);
-    expect(alerta).toHaveTextContent("scripts/iniciar-motores.ps1");
+    expect(alerta).toHaveTextContent("scripts/iniciar.bat");
     expect(screen.queryByRole("region", { name: "Totais" })).not.toBeInTheDocument();
   });
 

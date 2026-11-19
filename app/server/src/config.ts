@@ -27,7 +27,7 @@ export const config = {
   get portaApp(): number {
     return lerPorta(process.env.PORTA_APP);
   },
-  urlRegimeRegular: process.env.URL_REGIME_REGULAR ?? "http://localhost:8080/api/calculadora",
-  urlSimples: process.env.URL_SIMPLES ?? "http://localhost:8082/api",
+  urlRegimeRegular: process.env.URL_REGIME_REGULAR ?? "http://127.0.0.1:8080/api/calculadora",
+  urlSimples: process.env.URL_SIMPLES ?? "http://127.0.0.1:8082/api",
   caminhoBanco: process.env.CAMINHO_BANCO ?? bancoPadrao,
 };
