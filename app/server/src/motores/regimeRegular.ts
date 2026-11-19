@@ -1,11 +1,13 @@
-import { ErroDominio, ENTRADA_INVALIDA, MOTOR_INDISPONIVEL } from "../dominio/erros.js";
 import type {
+  AtividadeSimples,
   Fundamentacao,
   ObjetoResultado,
   OperacaoEntrada,
   ResultadoOperacao,
   SituacaoTributaria,
 } from "../dominio/tipos.js";
+import { requisitar } from "./http.js";
+import { listarAtividades } from "./simplesNacional.js";
 
 export interface VersoesMotores {
   regimeRegular: string;
@@ -17,15 +19,13 @@ export interface MotoresPort {
   versoes(): Promise<VersoesMotores>;
   listarSituacoes(data: string): Promise<SituacaoTributaria[]>;
   listarFundamentacoes(data: string): Promise<Fundamentacao[]>;
+  listarAtividades(data: string): Promise<AtividadeSimples[]>;
 }
 
 export interface ConfigMotores {
   urlRegimeRegular: string;
   urlSimples: string;
 }
-
-const MSG_INDISPONIVEL = "Motor oficial indisponível. Inicie-o com scripts\\iniciar-motores.ps1.";
-const TIMEOUT_MS = 30000;
 
 export function parseResultado(texto: string): ResultadoOperacao {
   return JSON.parse(texto) as ResultadoOperacao;
@@ -42,32 +42,6 @@ export function extrairMemoriaCalculo(objeto: ObjetoResultado): {
   if (typeof g?.gIBSMun?.memoriaCalculo === "string") saida.ibsMun = g.gIBSMun.memoriaCalculo;
   if (typeof g?.gCBS?.memoriaCalculo === "string") saida.cbs = g.gCBS.memoriaCalculo;
   return saida;
-}
-
-function detalheDoMotor(texto: string): string {
-  try {
-    const j = JSON.parse(texto) as { detail?: string; errors?: { detail?: string }[] };
-    const extras = (j.errors ?? []).map((e) => e.detail).filter(Boolean);
-    const base = j.detail ?? "Requisição recusada pelo motor oficial.";
-    return extras.length ? `${base} ${extras.join("; ")}` : base;
-  } catch {
-    return texto.slice(0, 300) || "Requisição recusada pelo motor oficial.";
-  }
-}
-
-async function requisitar(url: string, init?: RequestInit): Promise<string> {
-  let res: Response;
-  let texto: string;
-  try {
-    res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
-    // Decodifica explicitamente como UTF-8 a partir dos bytes.
-    texto = new TextDecoder("utf-8").decode(await res.arrayBuffer());
-  } catch {
-    throw new ErroDominio(MOTOR_INDISPONIVEL, MSG_INDISPONIVEL, 503);
-  }
-  if (res.status >= 500) throw new ErroDominio(MOTOR_INDISPONIVEL, MSG_INDISPONIVEL, 503);
-  if (res.status >= 400) throw new ErroDominio(ENTRADA_INVALIDA, detalheDoMotor(texto), 400);
-  return texto;
 }
 
 export function criarMotores(cfg: ConfigMotores): MotoresPort {
@@ -109,5 +83,7 @@ export function criarMotores(cfg: ConfigMotores): MotoresPort {
       );
       return JSON.parse(texto) as Fundamentacao[];
     },
+
+    listarAtividades: (data) => listarAtividades(cfg.urlSimples, data),
   };
 }

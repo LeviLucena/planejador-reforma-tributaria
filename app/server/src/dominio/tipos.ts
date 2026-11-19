@@ -85,3 +85,18 @@ export interface Fundamentacao {
   textoCurto: string;
   referenciaNormativa: string;
 }
+
+export interface AtividadeSimples {
+  codigo: string;
+  ordem: number;
+  descricao: string;
+  anexoSemFatorR: string | null;
+  anexoComFatorR: string | null;
+  sujeitaFatorR: boolean;
+  rotuloAnexo: string;
+  rotuloCurtoAnexo: string;
+  disponivel: boolean;
+  anexosFaltantes: string[];
+  modoFatorR: string;
+  tpDocsAdmissiveis: string[];
+}
