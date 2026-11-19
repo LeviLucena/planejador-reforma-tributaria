@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ErroDominio, ENTRADA_INVALIDA, MOTOR_INDISPONIVEL } from "./dominio/erros.js";
 import type { Banco } from "./db/banco.js";
@@ -13,7 +16,11 @@ export interface OpcoesApp {
   banco?: Banco;
   /** Liga o log do Fastify (padrão false, para manter os testes silenciosos). */
   logger?: boolean;
+  /** Pasta da interface compilada (padrão app/web/dist); só é servida se existir. */
+  diretorioWeb?: string;
 }
+
+const DIRETORIO_WEB_PADRAO = fileURLToPath(new URL("../../web/dist", import.meta.url));
 
 export function buildApp(opcoes: OpcoesApp = {}): FastifyInstance {
   const app = Fastify({ logger: opcoes.logger ?? false });
@@ -34,9 +41,20 @@ export function buildApp(opcoes: OpcoesApp = {}): FastifyInstance {
     return resposta.status(500).send({ codigo: "ERRO_INTERNO", mensagem: "Erro interno." });
   });
 
-  app.setNotFoundHandler((_req, resposta) =>
-    resposta.status(404).send({ codigo: "NAO_ENCONTRADO", mensagem: "Rota não encontrada." }),
-  );
+  const raizWeb = opcoes.diretorioWeb ?? DIRETORIO_WEB_PADRAO;
+  const servirWeb = existsSync(raizWeb);
+  if (servirWeb) {
+    app.register(fastifyStatic, { root: raizWeb });
+  }
+
+  app.setNotFoundHandler((req, resposta) => {
+    const caminho = req.url.split("?")[0] ?? "";
+    const ehApi = caminho === "/api" || caminho.startsWith("/api/");
+    if (servirWeb && req.method === "GET" && !ehApi) {
+      return resposta.type("text/html").sendFile("index.html");
+    }
+    return resposta.status(404).send({ codigo: "NAO_ENCONTRADO", mensagem: "Rota não encontrada." });
+  });
 
   app.register(rotasSaude);
   if (opcoes.banco) {
