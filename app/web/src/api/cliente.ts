@@ -1,7 +1,7 @@
 import type { Cenario, DadosCenario } from "../../../server/src/cenarios/repositorio";
 import type { Empresa, DadosEmpresa } from "../../../server/src/empresas/repositorio";
 import type { Fundamentacao, SituacaoTributaria } from "../../../server/src/dominio/tipos";
-import type { ConjuntoResumo } from "../../../server/src/premissas/repositorio";
+import type { ConjuntoResumo, LinhaPremissa, PremissaEntrada } from "../../../server/src/premissas/repositorio";
 import type { RequisicaoSimulacao, RespostaSimulacao } from "../../../server/src/simulacao/servico";
 
 export class ErroApi extends Error {
@@ -14,6 +14,8 @@ export class ErroApi extends Error {
     this.status = status;
   }
 }
+
+export type CorpoConjunto = { nome: string; vigenciaInicio: string; vigenciaFim?: string; observacao?: string };
 
 export type CorpoCenario = Pick<DadosCenario, "nome" | "operacao" | "conjuntoPremissasId">;
 
@@ -57,6 +59,15 @@ export const cliente = {
     requisicao<Fundamentacao[]>("GET", `/api/fundamentacoes?data=${encodeURIComponent(data)}`),
   premissas: {
     conjuntos: () => requisicao<ConjuntoResumo[]>("GET", "/api/premissas/conjuntos"),
+    criarConjunto: (dados: CorpoConjunto) => requisicao<ConjuntoResumo>("POST", "/api/premissas/conjuntos", dados),
+    linhas: (conjuntoId: number) =>
+      requisicao<LinhaPremissa[]>("GET", `/api/premissas/conjuntos/${conjuntoId}/linhas`),
+    adicionarLinha: (conjuntoId: number, linha: PremissaEntrada) =>
+      requisicao<LinhaPremissa>("POST", `/api/premissas/conjuntos/${conjuntoId}/linhas`, linha),
+    carregar: (documento: unknown) =>
+      requisicao<{ conjuntoId: number; linhas: number }>("POST", "/api/premissas/carregar", documento),
+    validar: (conjuntoId: number, validadoPor: string) =>
+      requisicao<ConjuntoResumo>("POST", `/api/premissas/conjuntos/${conjuntoId}/validar`, { validadoPor }),
   },
   empresas: {
     listar: () => requisicao<Empresa[]>("GET", "/api/empresas"),

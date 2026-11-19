@@ -1,13 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import type { Banco } from "../db/banco.js";
 import { ENTRADA_INVALIDA, ErroDominio } from "../dominio/erros.js";
+import { UFS } from "../dominio/ufs.js";
 import type { OperacaoEntrada } from "../dominio/tipos.js";
 import type { MotoresPort } from "../motores/regimeRegular.js";
 import { simularOperacao } from "../simulacao/servico.js";
 
-export const UFS = new Set(
-  "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" "),
-);
 const RE_DH = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
 
 export function invalida(mensagem: string): never {

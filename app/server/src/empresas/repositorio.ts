@@ -1,6 +1,6 @@
 import type { Banco } from "../db/banco.js";
 import { ENTRADA_INVALIDA, ErroDominio, NAO_ENCONTRADO } from "../dominio/erros.js";
-import { UFS } from "../rotas/simulacao.js";
+import { UFS } from "../dominio/ufs.js";
 
 export type RegimeAtual = "simples" | "presumido" | "real";
 

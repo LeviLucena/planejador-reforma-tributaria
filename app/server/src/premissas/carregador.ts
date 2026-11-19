@@ -157,24 +157,11 @@ function validarArquivo(dados: unknown): {
 }
 
 /**
- * Lê um arquivo de premissas (formato em dados/premissas/README.md), valida o arquivo
- * inteiro e grava conjunto + linhas numa única transação: se algo falhar, nada é gravado.
- * Nunca preenche validado_por/validado_em (só o usuário valida).
+ * Valida o documento { conjunto, linhas } inteiro e grava conjunto + linhas numa única transação:
+ * se algo falhar, nada é gravado. Nunca preenche validado_por/validado_em (só o usuário valida).
  */
-export function carregarArquivo(banco: Banco, caminho: string): { conjuntoId: number; linhas: number } {
-  let texto: string;
-  try {
-    texto = readFileSync(caminho, "utf8");
-  } catch (e) {
-    invalido(`Não foi possível ler o arquivo de premissas "${caminho}": ${(e as Error).message}`);
-  }
-  let dados: unknown;
-  try {
-    dados = JSON.parse(texto.replace(/^﻿/, ""));
-  } catch (e) {
-    invalido(`Arquivo de premissas "${caminho}" não é JSON válido: ${(e as Error).message}`);
-  }
-  const { conjunto, linhas } = validarArquivo(dados);
+export function carregarDocumento(banco: Banco, documento: unknown): { conjuntoId: number; linhas: number } {
+  const { conjunto, linhas } = validarArquivo(documento);
 
   return banco.transaction(() => {
     const conjuntoId = criarConjunto(banco, conjunto);
@@ -188,4 +175,21 @@ export function carregarArquivo(banco: Banco, caminho: string): { conjuntoId: nu
     });
     return { conjuntoId, linhas: linhas.length };
   })();
+}
+
+/** Lê um arquivo de premissas (formato em dados/premissas/README.md) e o carrega com carregarDocumento. */
+export function carregarArquivo(banco: Banco, caminho: string): { conjuntoId: number; linhas: number } {
+  let texto: string;
+  try {
+    texto = readFileSync(caminho, "utf8");
+  } catch (e) {
+    invalido(`Não foi possível ler o arquivo de premissas "${caminho}": ${(e as Error).message}`);
+  }
+  let dados: unknown;
+  try {
+    dados = JSON.parse(texto.replace(/^﻿/, ""));
+  } catch (e) {
+    invalido(`Arquivo de premissas "${caminho}" não é JSON válido: ${(e as Error).message}`);
+  }
+  return carregarDocumento(banco, dados);
 }
