@@ -174,4 +174,19 @@ describe("ajustes da revisão do Task 12", () => {
     const i4 = await screen.findByRole("article", { name: "Item 4" });
     expect(within(i4).getByText("cClassTrib 200003")).toBeInTheDocument();
   });
+
+  it("avisa, junto ao título do bloco, quando o Imposto Seletivo está recolhido mas tem valores digitados (só nesse caso)", async () => {
+    stub();
+    await abrir();
+    const item = screen.getByRole("group", { name: "Item 1" });
+    const aviso = /valores digitados neste bloco não serão enviados enquanto ele estiver recolhido/;
+    expect(within(item).queryByText(aviso)).not.toBeInTheDocument(); // recolhido e vazio
+    const detalhes = item.querySelector("details")!;
+    alternarDetalhes(detalhes, true);
+    fireEvent.change(within(item).getByLabelText("Imposto informado"), { target: { value: "15" } });
+    expect(within(item).queryByText(aviso)).not.toBeInTheDocument(); // aberto
+    alternarDetalhes(detalhes, false);
+    expect(within(item).getByText(aviso)).toBeInTheDocument(); // recolhido com valor
+    expect(detalhes.querySelector("summary")!.textContent).toMatch(aviso);
+  });
 });

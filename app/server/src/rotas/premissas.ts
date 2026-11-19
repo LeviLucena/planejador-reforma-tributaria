@@ -5,6 +5,7 @@ import { carregarDocumento } from "../premissas/carregador.js";
 import {
   adicionarPremissa,
   criarConjunto,
+  duplicarConjunto,
   listarConjuntos,
   listarLinhas,
   obterConjunto,
@@ -65,6 +66,11 @@ export function rotasPremissas(deps: { banco: Banco }) {
       const linhaId = adicionarPremissa(banco, id, corpo as unknown as PremissaEntrada);
       const linha = listarLinhas(banco, id).find((l) => l.id === linhaId);
       return resposta.status(201).send(linha);
+    });
+
+    app.post("/api/premissas/conjuntos/:id/duplicar", async (req, resposta) => {
+      const novo = duplicarConjunto(banco, idParam(req));
+      return resposta.status(201).send(obterConjunto(banco, novo));
     });
 
     app.post("/api/premissas/carregar", async (req, resposta) => {

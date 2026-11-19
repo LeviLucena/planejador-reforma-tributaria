@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { abrirBanco } from "../db/banco.js";
-import { adicionarPremissa, criarConjunto, listarConjuntos } from "./repositorio.js";
+import { adicionarPremissa, criarConjunto, duplicarConjunto, listarConjuntos, listarLinhas, validarConjunto } from "./repositorio.js";
 
 describe("listarConjuntos", () => {
   it("vazio quando não há conjuntos", () => {
@@ -60,5 +60,82 @@ describe("adicionarPremissa: endurecimento", () => {
       const outro = criarConjunto(b, { nome: a, vigenciaInicio: "2027-01-01" });
       expect(() => adicionarPremissa(b, outro, { tributo: "CBS", aliquota: a, ...usuario }), a).not.toThrow();
     }
+  });
+});
+
+describe("conjunto validado é imutável", () => {
+  const usuario = { origem: "usuario" as const };
+
+  it("aceita linha antes da validação e recusa depois, com 409 CONJUNTO_VALIDADO e sem alterar as linhas", () => {
+    const b = abrirBanco(":memory:");
+    const c = criarConjunto(b, { nome: "t", vigenciaInicio: "2027-01-01" });
+    adicionarPremissa(b, c, { tributo: "CBS", aliquota: "1", ...usuario });
+    validarConjunto(b, c, "Ana");
+    let erro: unknown;
+    try {
+      adicionarPremissa(b, c, { tributo: "IS_ADREM", aliquota: "2", ...usuario });
+    } catch (e) {
+      erro = e;
+    }
+    expect(erro).toMatchObject({ codigo: "CONJUNTO_VALIDADO", status: 409 });
+    expect((erro as Error).message).toMatch(/Duplique-o/);
+    expect(listarLinhas(b, c)).toHaveLength(1);
+  });
+
+  it("validar de novo continua sobrescrevendo (validar não é editar)", () => {
+    const b = abrirBanco(":memory:");
+    const c = criarConjunto(b, { nome: "t", vigenciaInicio: "2027-01-01" });
+    validarConjunto(b, c, "Ana");
+    expect(validarConjunto(b, c, "Bia").validadoPor).toBe("Bia");
+  });
+});
+
+describe("duplicarConjunto", () => {
+  function original() {
+    const b = abrirBanco(":memory:");
+    const c = criarConjunto(b, { nome: "Base", vigenciaInicio: "2027-01-01", vigenciaFim: "2028-12-31", observacao: "obs" });
+    // Linhas sintéticas de teste (fonte inventada só para provar a cópia byte a byte).
+    adicionarPremissa(b, c, { tributo: "IBS_UF", aliquota: "0.050", origem: "lei_transicao", fonteNorma: "Norma de teste nº 1", fonteArtigo: "art. 9º, § 2º", consultadoEm: "2026-11-18" });
+    adicionarPremissa(b, c, { tributo: "CBS", aliquota: "8.8", origem: "usuario" });
+    return { b, c };
+  }
+  const semId = (ls: ReturnType<typeof listarLinhas>) => ls.map(({ id: _id, ...resto }) => resto);
+
+  it("copia conjunto e todas as linhas idênticas, sem validação, mesmo se o original estava validado", () => {
+    const { b, c } = original();
+    validarConjunto(b, c, "Ana");
+    const antes = JSON.stringify(listarLinhas(b, c));
+    const novo = duplicarConjunto(b, c);
+    expect(novo).not.toBe(c);
+    const lista = listarConjuntos(b);
+    const copia = lista.find((x) => x.id === novo)!;
+    expect(copia).toMatchObject({ nome: "Base (cópia)", vigenciaInicio: "2027-01-01", vigenciaFim: "2028-12-31", observacao: "obs", validadoPor: null, validadoEm: null, linhas: 2 });
+    expect(semId(listarLinhas(b, novo))).toEqual(semId(listarLinhas(b, c)));
+    expect(JSON.stringify(listarLinhas(b, c))).toBe(antes);
+    expect(lista.find((x) => x.id === c)!.validadoPor).toBe("Ana");
+    expect(() => adicionarPremissa(b, novo, { tributo: "IS_ADREM", aliquota: "1", origem: "usuario" })).not.toThrow();
+  });
+
+  it("nome único quando '(cópia)' já existe", () => {
+    const { b, c } = original();
+    const n1 = duplicarConjunto(b, c);
+    const n2 = duplicarConjunto(b, c);
+    const n3 = duplicarConjunto(b, c);
+    const nomes = new Map(listarConjuntos(b).map((x) => [x.id, x.nome]));
+    expect([nomes.get(n1), nomes.get(n2), nomes.get(n3)]).toEqual(["Base (cópia)", "Base (cópia 2)", "Base (cópia 3)"]);
+  });
+
+  it("id inexistente: 404", () => {
+    expect(() => duplicarConjunto(abrirBanco(":memory:"), 99)).toThrow(/não encontrado/);
+  });
+
+  it("é atômico: se a cópia de uma linha falha, nada fica gravado", () => {
+    const { b, c } = original();
+    b.exec(
+      `CREATE TRIGGER falha_copia BEFORE INSERT ON premissa_aliquota WHEN NEW.conjunto_id <> ${c} AND NEW.tributo = 'CBS' BEGIN SELECT RAISE(ABORT, 'falha forçada'); END;`,
+    );
+    expect(() => duplicarConjunto(b, c)).toThrow(/falha forçada/);
+    expect(listarConjuntos(b)).toHaveLength(1);
+    expect((b.prepare("SELECT COUNT(*) AS n FROM premissa_aliquota").get() as { n: number }).n).toBe(2);
   });
 });

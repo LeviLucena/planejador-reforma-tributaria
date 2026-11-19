@@ -87,6 +87,7 @@ describe("cliente.premissas", () => {
     ["criarConjunto", () => cliente.premissas.criarConjunto({ nome: "a", vigenciaInicio: "2027-01-01" }), "POST", "/api/premissas/conjuntos", { nome: "a", vigenciaInicio: "2027-01-01" }],
     ["linhas", () => cliente.premissas.linhas(3), "GET", "/api/premissas/conjuntos/3/linhas", undefined],
     ["adicionarLinha", () => cliente.premissas.adicionarLinha(3, { tributo: "CBS", aliquota: "1", origem: "usuario" }), "POST", "/api/premissas/conjuntos/3/linhas", { tributo: "CBS", aliquota: "1", origem: "usuario" }],
+    ["duplicar", () => cliente.premissas.duplicar(3), "POST", "/api/premissas/conjuntos/3/duplicar", undefined],
     ["carregar", () => cliente.premissas.carregar({ conjunto: {}, linhas: [] }), "POST", "/api/premissas/carregar", { conjunto: {}, linhas: [] }],
     ["validar", () => cliente.premissas.validar(3, "Ana"), "POST", "/api/premissas/conjuntos/3/validar", { validadoPor: "Ana" }],
   ])("%s usa o método, o caminho e o corpo certos", async (_n, chamar, metodo, caminho, corpo) => {

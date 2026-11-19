@@ -12,6 +12,11 @@ interface Props {
   onRemover: (chave: number) => void;
 }
 
+const temValorIS = (it: ItemForm) =>
+  [it.isCst, it.isCClassTrib, it.isBaseCalculo, it.isQuantidade, it.isUnidade, it.isImpostoInformado, it.isAdValorem].some(
+    (v) => v.trim() !== "",
+  );
+
 export function TabelaItens({ itens, situacoes, erros, onMudar, onAdicionar, onRemover }: Props) {
   const temLista = situacoes.length > 0;
   return (
@@ -113,7 +118,15 @@ export function TabelaItens({ itens, situacoes, erros, onMudar, onAdicionar, onR
             </div>
 
             <details open={it.isAberto} onToggle={(ev) => onMudar(it.chave, { isAberto: (ev.currentTarget as HTMLDetailsElement).open })}>
-              <summary>Imposto Seletivo (opcional)</summary>
+              <summary>
+                Imposto Seletivo (opcional)
+                {!it.isAberto && temValorIS(it) && (
+                  <span className="dica">
+                    {" "}
+                    — valores digitados neste bloco não serão enviados enquanto ele estiver recolhido
+                  </span>
+                )}
+              </summary>
               <div className="grade">
                 <Campo id={`${k}-iscst`} rotulo="CST do IS" erro={e("isCst")}>
                   {(a) => <input {...a} inputMode="numeric" maxLength={3} {...texto("isCst")} />}

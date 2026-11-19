@@ -61,9 +61,15 @@ summary { cursor: pointer; font-weight: 600; }
 .etiqueta.ok { border-color: #2e7d32; color: #2e7d32; }
 .etiqueta.alerta { border-color: #b26a00; color: #b26a00; }
 @media (prefers-color-scheme: dark) { .etiqueta.ok { color: #7fd48a; border-color: #7fd48a; } .etiqueta.alerta { color: #f0b858; border-color: #f0b858; } }
-.origem-oficial { border-color: #2e7d32; }
-.origem-lei_transicao { border-color: #1d4e89; }
-.origem-usuario { border-color: #8e44ad; }
+/* Selos de origem: cor + borda + fundo distintos, sempre com o rótulo em texto (não só cor). */
+.etiqueta.origem-oficial { border: 2px solid #1b5e20; background: #e3f4e4; color: #14451a; }
+.etiqueta.origem-lei_transicao { border: 2px dashed #0d3c75; background: #e1ecfa; color: #0b2f5e; }
+.etiqueta.origem-usuario { border: 2px dotted #6a1b9a; background: #f3e5f9; color: #4a1466; }
+@media (prefers-color-scheme: dark) {
+  .etiqueta.origem-oficial { border-color: #7fd48a; background: #17331b; color: #b9ecc0; }
+  .etiqueta.origem-lei_transicao { border-color: #7fb0ea; background: #14283f; color: #bcd6f6; }
+  .etiqueta.origem-usuario { border-color: #cf9be6; background: #2c1a36; color: #e6c9f3; }
+}
 .resultado section { margin-bottom: var(--espaco); }
 .totais dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem; margin: 0.5rem 0; }
 .totais dl > div { padding: 0.6rem 0.8rem; border: 1px solid var(--cor-borda); border-radius: 8px; background: var(--cor-superficie); }

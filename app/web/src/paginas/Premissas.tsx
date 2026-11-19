@@ -22,6 +22,15 @@ function dataBR(iso: string): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
 
+const FORMATO_BRASILIA = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" });
+
+/** Instante ISO com horário (ex.: validado_em em UTC) -> data civil em Brasília; só-data passa como está. */
+function dataBrasilia(iso: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return dataBR(iso);
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : FORMATO_BRASILIA.format(d);
+}
+
 const mensagemDe = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
 
 function lerTexto(arquivo: File): Promise<string> {
@@ -40,7 +49,7 @@ function Origem({ origem }: { origem: string }) {
 function statusDe(c: ConjuntoResumo) {
   return c.validadoPor ? (
     <span className="etiqueta ok">
-      validado por {c.validadoPor} em {c.validadoEm ? dataBR(c.validadoEm) : "data não registrada"}
+      validado por {c.validadoPor} em {c.validadoEm ? dataBrasilia(c.validadoEm) : "data não registrada"}
     </span>
   ) : (
     <span className="etiqueta alerta">pendente de validação</span>
@@ -123,6 +132,9 @@ export function PaginaPremissas() {
   const entradaArquivo = useRef<HTMLInputElement>(null);
 
   const [validador, setValidador] = useState("");
+  const [msgDuplicar, setMsgDuplicar] = useState<string | null>(null);
+  const [erroDuplicar, setErroDuplicar] = useState<string | null>(null);
+  const pedidoLinhas = useRef(0);
   const [erroValidar, setErroValidar] = useState<string | null>(null);
   const [confirmacao, setConfirmacao] = useState<string | null>(null);
 
@@ -141,12 +153,14 @@ export function PaginaPremissas() {
   }, [recarregar]);
 
   const carregarLinhas = useCallback(async (id: number) => {
+    const pedido = ++pedidoLinhas.current; // só a resposta do pedido mais recente vale
     setLinhas(null);
     setErroLinhas(null);
     try {
-      setLinhas(await cliente.premissas.linhas(id));
+      const l = await cliente.premissas.linhas(id);
+      if (pedido === pedidoLinhas.current) setLinhas(l);
     } catch (e) {
-      setErroLinhas(mensagemDe(e));
+      if (pedido === pedidoLinhas.current) setErroLinhas(mensagemDe(e));
     }
   }, []);
 
@@ -155,8 +169,24 @@ export function PaginaPremissas() {
     setConfirmacao(null);
     setErroValidar(null);
     setErroAdicionar(null);
+    setErrosLinha({});
+    setMsgDuplicar(null);
+    setErroDuplicar(null);
     setValidador("");
     void carregarLinhas(id);
+  }
+
+  async function duplicar() {
+    if (selecionado === null) return;
+    setErroDuplicar(null);
+    try {
+      const c = await cliente.premissas.duplicar(selecionado);
+      await recarregar();
+      selecionar(c.id);
+      setMsgDuplicar(`Cópia criada: “${c.nome}”. Ela ainda não está validada e pode ser editada.`);
+    } catch (erro) {
+      setErroDuplicar(mensagemDe(erro));
+    }
   }
 
   async function criar(ev: React.FormEvent) {
@@ -184,7 +214,7 @@ export function PaginaPremissas() {
 
   async function adicionar(ev: React.FormEvent) {
     ev.preventDefault();
-    if (selecionado === null) return;
+    if (selecionado === null || conjuntoValidado) return;
     const e = validarLinha(form);
     setErrosLinha(e);
     setErroAdicionar(null);
@@ -230,7 +260,7 @@ export function PaginaPremissas() {
     setErroValidar(null);
     try {
       const c = await cliente.premissas.validar(selecionado, validador.trim());
-      setConfirmacao(`Conjunto validado por ${c.validadoPor} em ${c.validadoEm ? dataBR(c.validadoEm) : "data não registrada"}.`);
+      setConfirmacao(`Conjunto validado por ${c.validadoPor} em ${c.validadoEm ? dataBrasilia(c.validadoEm) : "data não registrada"}.`);
       setValidador("");
       await recarregar();
     } catch (erro) {
@@ -239,6 +269,7 @@ export function PaginaPremissas() {
   }
 
   const atual = conjuntos?.find((c) => c.id === selecionado) ?? null;
+  const conjuntoValidado = atual?.validadoPor != null;
   const mudarLinha = (m: Partial<FormLinha>) => setForm((f) => ({ ...f, ...m }));
   const precisaFonte = form.origem !== "usuario";
   const mostraUf = !NACIONAIS.includes(form.tributo);
@@ -335,6 +366,17 @@ export function PaginaPremissas() {
             {statusDe(atual)} <span className="dica">Vigência: {vigenciaDe(atual)}</span>
           </p>
           {atual.observacao && <p className="dica">{atual.observacao}</p>}
+          <div className="acoes">
+            <button type="button" className="secundario" onClick={duplicar}>
+              Duplicar conjunto
+            </button>
+          </div>
+          {erroDuplicar && (
+            <p role="alert" className="mensagem-erro">
+              Não foi possível duplicar: {erroDuplicar}
+            </p>
+          )}
+          {msgDuplicar && <p role="status">{msgDuplicar}</p>}
           {erroLinhas && (
             <p role="alert" className="mensagem-erro">
               Não foi possível carregar as linhas: {erroLinhas}
@@ -376,8 +418,14 @@ export function PaginaPremissas() {
           )}
 
           <form onSubmit={adicionar} noValidate>
-            <fieldset className="bloco">
+            <fieldset className="bloco" disabled={conjuntoValidado}>
               <legend>Adicionar linha</legend>
+              {conjuntoValidado && (
+                <p className="dica">
+                  Este conjunto já foi validado e não pode ser alterado. Use “Duplicar conjunto” para criar uma versão
+                  editável.
+                </p>
+              )}
               <div className="grade">
                 <Campo id="linha-tributo" rotulo="Tributo">
                   {(a) => (

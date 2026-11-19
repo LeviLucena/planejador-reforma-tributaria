@@ -64,6 +64,8 @@ export const cliente = {
       requisicao<LinhaPremissa[]>("GET", `/api/premissas/conjuntos/${conjuntoId}/linhas`),
     adicionarLinha: (conjuntoId: number, linha: PremissaEntrada) =>
       requisicao<LinhaPremissa>("POST", `/api/premissas/conjuntos/${conjuntoId}/linhas`, linha),
+    duplicar: (conjuntoId: number) =>
+      requisicao<ConjuntoResumo>("POST", `/api/premissas/conjuntos/${conjuntoId}/duplicar`),
     carregar: (documento: unknown) =>
       requisicao<{ conjuntoId: number; linhas: number }>("POST", "/api/premissas/carregar", documento),
     validar: (conjuntoId: number, validadoPor: string) =>

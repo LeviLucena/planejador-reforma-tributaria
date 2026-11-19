@@ -254,3 +254,124 @@ describe("validar conjunto", () => {
     await waitFor(() => expect(screen.queryByText("pendente de validação")).not.toBeInTheDocument());
   });
 });
+
+// Linhas SINTÉTICAS de teste (stand-ins, uma de cada origem): nenhuma taxa aqui é oficial.
+const linhasUmaDeCada = [
+  { id: 1, tributo: "CBS", uf: null, municipioIbge: null, aliquota: "1.00", origem: "oficial", fonteNorma: "Norma de teste A", fonteArtigo: "art. 1", consultadoEm: "2026-11-18" },
+  { id: 2, tributo: "IBS_UF", uf: null, municipioIbge: null, aliquota: "2.00", origem: "lei_transicao", fonteNorma: "Norma de teste B", fonteArtigo: "art. 2", consultadoEm: "2026-11-18" },
+  { id: 3, tributo: "IS_ADREM", uf: null, municipioIbge: null, aliquota: "3.00", origem: "usuario", fonteNorma: null, fonteArtigo: null, consultadoEm: null },
+];
+
+describe("selos de origem", () => {
+  it("cada linha mostra o selo da sua origem (oficial, lei de transição, premissa sua)", async () => {
+    stub((c) => (c.url === "/api/premissas/conjuntos/1/linhas" ? resp(200, linhasUmaDeCada) : undefined));
+    const regiao = await abrirConjunto1();
+    const linhas = within(regiao).getAllByRole("row").slice(1);
+    const rotuloDe = (tributo: string) => {
+      const r = linhas.find((x) => within(x).queryByText(tributo))!;
+      return within(r).getByText(/^(oficial|lei de transição|premissa sua)$/, { selector: ".etiqueta" }).textContent;
+    };
+    expect(rotuloDe("CBS")).toBe("oficial");
+    expect(rotuloDe("IBS_UF")).toBe("lei de transição");
+    expect(rotuloDe("IS_ADREM")).toBe("premissa sua");
+    expect(within(regiao).getByText("oficial", { selector: ".etiqueta.origem-oficial" })).toBeInTheDocument();
+    expect(within(regiao).getByText("lei de transição", { selector: ".etiqueta.origem-lei_transicao" })).toBeInTheDocument();
+    expect(within(regiao).getByText("premissa sua", { selector: ".etiqueta.origem-usuario" })).toBeInTheDocument();
+  });
+});
+
+describe("conjunto validado é imutável na interface", () => {
+  it("o formulário de adicionar linha fica desabilitado para conjunto validado, com texto apontando para Duplicar", async () => {
+    stub();
+    render(<PaginaPremissas />);
+    fireEvent.click(await screen.findByRole("button", { name: /Cenário do usuário/ }));
+    await screen.findByRole("region", { name: /Linhas de/ });
+    expect(screen.getByRole("button", { name: "Adicionar linha" })).toBeDisabled();
+    expect(screen.getByLabelText("Alíquota (%)")).toBeDisabled();
+    expect(screen.getByText(/já foi validado e não pode ser alterado/)).toHaveTextContent(/Duplicar conjunto/);
+  });
+
+  it("Duplicar conjunto chama o endpoint, seleciona a cópia (editável) e confirma em português", async () => {
+    const copia = { ...conjuntoUsuario, id: 3, nome: "Cenário do usuário (teste) (cópia)", validadoPor: null, validadoEm: null };
+    let duplicou = false;
+    const chamadas = stub((c) => {
+      if (c.url === "/api/premissas/conjuntos/2/duplicar") {
+        duplicou = true;
+        return resp(201, copia);
+      }
+      if (c.url === "/api/premissas/conjuntos" && duplicou) return resp(200, [conjuntoOficial, conjuntoUsuario, copia]);
+      if (c.url === "/api/premissas/conjuntos/3/linhas") return resp(200, []);
+      return undefined;
+    });
+    render(<PaginaPremissas />);
+    fireEvent.click(await screen.findByRole("button", { name: /Cenário do usuário \(teste\)$/ }));
+    await screen.findByRole("region", { name: /Linhas de/ });
+    fireEvent.click(screen.getByRole("button", { name: "Duplicar conjunto" }));
+    expect(await screen.findByText(/Cópia criada: “Cenário do usuário \(teste\) \(cópia\)”/)).toBeInTheDocument();
+    expect(chamadas.find((c) => c.url === "/api/premissas/conjuntos/2/duplicar")!.metodo).toBe("POST");
+    await screen.findByRole("region", { name: "Linhas de Cenário do usuário (teste) (cópia)" });
+    expect(screen.getByRole("button", { name: "Adicionar linha" })).toBeEnabled();
+  });
+
+  it("se o servidor responder 409 ao adicionar linha, mostra a mensagem do servidor", async () => {
+    stub((c) =>
+      c.metodo === "POST" ? resp(409, { codigo: "CONJUNTO_VALIDADO", mensagem: "Este conjunto já foi validado e não pode ser alterado. Duplique-o para criar uma versão editável." }) : undefined,
+    );
+    await abrirConjunto1();
+    fireEvent.change(screen.getByLabelText("Alíquota (%)"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar linha" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não pode ser alterado/);
+  });
+});
+
+describe("estado ao trocar de conjunto", () => {
+  it("resposta atrasada de um conjunto anterior não sobrescreve as linhas do conjunto atual", async () => {
+    const liberar: Record<string, () => void> = {};
+    const linhasDoUm = [linhasUmaDeCada[0]!];
+    const linhasDoDois = [linhasUmaDeCada[2]!];
+    stub((c) => {
+      if (c.url === "/api/premissas/conjuntos/1/linhas" || c.url === "/api/premissas/conjuntos/2/linhas") {
+        const n = c.url.includes("/1/") ? "1" : "2";
+        return new Promise((res) => {
+          liberar[n] = () => res(resp(200, n === "1" ? linhasDoUm : linhasDoDois));
+        }) as never;
+      }
+      return undefined;
+    });
+    render(<PaginaPremissas />);
+    fireEvent.click(await screen.findByRole("button", { name: /Oficial 2027/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Cenário do usuário/ }));
+    await waitFor(() => expect(liberar["1"] && liberar["2"]).toBeTruthy());
+    liberar["2"]!();
+    const regiao = await screen.findByRole("region", { name: /Linhas de Cenário/ });
+    await within(regiao).findByText("IS_ADREM", { selector: "td" });
+    liberar["1"]!(); // a resposta velha chega depois
+    await new Promise((r) => setTimeout(r, 20));
+    expect(within(regiao).getByText("IS_ADREM", { selector: "td" })).toBeInTheDocument();
+    expect(within(regiao).queryByText("CBS", { selector: "td" })).not.toBeInTheDocument();
+  });
+
+  it("erros do formulário e do servidor do conjunto anterior somem ao selecionar outro", async () => {
+    stub((c) => (c.metodo === "POST" ? resp(400, { codigo: "ENTRADA_INVALIDA", mensagem: "Erro do servidor X." }) : undefined));
+    await abrirConjunto1();
+    fireEvent.change(screen.getByLabelText("Alíquota (%)"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar linha" })); // erro do servidor
+    expect(await screen.findByText("Erro do servidor X.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Alíquota (%)"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar linha" })); // erro de validação no cliente
+    expect(await screen.findByText("Informe a alíquota só com números (ex.: 8,8).")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Cenário do usuário/ }));
+    await screen.findByRole("region", { name: /Linhas de Cenário/ });
+    expect(screen.queryByText("Erro do servidor X.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Informe a alíquota só com números (ex.: 8,8).")).not.toBeInTheDocument();
+  });
+});
+
+describe("data da validação em horário de Brasília", () => {
+  it("2027-03-10T01:30:00.000Z aparece como 09/03/2027", async () => {
+    const validado = { ...conjuntoUsuario, validadoEm: "2027-03-10T01:30:00.000Z" };
+    stub((c) => (c.url === "/api/premissas/conjuntos" ? resp(200, [conjuntoOficial, validado]) : undefined));
+    render(<PaginaPremissas />);
+    expect(await screen.findByText("validado por Ana em 09/03/2027")).toBeInTheDocument();
+  });
+});

@@ -139,3 +139,41 @@ describe("POST /api/premissas/conjuntos/:id/validar", () => {
     expect((await postar("/api/premissas/conjuntos/77/validar", { validadoPor: "Ana" })).statusCode).toBe(404);
   });
 });
+
+describe("conjunto validado e duplicação pelas rotas", () => {
+  const linha = { tributo: "CBS", aliquota: "8.8", origem: "usuario" };
+
+  it("depois de validar, adicionar linha responde 409 CONJUNTO_VALIDADO", async () => {
+    const { id } = await novoConjunto();
+    expect((await postar(`/api/premissas/conjuntos/${id}/linhas`, linha)).statusCode).toBe(201);
+    await postar(`/api/premissas/conjuntos/${id}/validar`, { validadoPor: "Ana" });
+    const r = await postar(`/api/premissas/conjuntos/${id}/linhas`, { tributo: "IS_ADREM", aliquota: "1", origem: "usuario" });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().codigo).toBe("CONJUNTO_VALIDADO");
+    expect((await app.inject({ method: "GET", url: `/api/premissas/conjuntos/${id}/linhas` })).json()).toHaveLength(1);
+  });
+
+  it("POST /duplicar: 201 com a cópia não validada e editável; original intacto", async () => {
+    const { id } = await novoConjunto({ nome: "Meu" });
+    await postar(`/api/premissas/conjuntos/${id}/linhas`, linha);
+    await postar(`/api/premissas/conjuntos/${id}/validar`, { validadoPor: "Ana" });
+    const r = await postar(`/api/premissas/conjuntos/${id}/duplicar`, {});
+    expect(r.statusCode).toBe(201);
+    const copia = r.json() as { id: number; nome: string; validadoPor: string | null; linhas: number };
+    expect(copia).toMatchObject({ nome: "Meu (cópia)", validadoPor: null, linhas: 1 });
+    expect((await postar(`/api/premissas/conjuntos/${copia.id}/linhas`, { tributo: "IS_ADREM", aliquota: "1", origem: "usuario" })).statusCode).toBe(201);
+    const lista = (await app.inject({ method: "GET", url: "/api/premissas/conjuntos" })).json() as { id: number; validadoPor: string | null; linhas: number }[];
+    expect(lista.find((c) => c.id === id)).toMatchObject({ validadoPor: "Ana", linhas: 1 });
+  });
+
+  it("duplicar id inexistente ou inválido: 404", async () => {
+    expect((await postar("/api/premissas/conjuntos/99/duplicar", {})).statusCode).toBe(404);
+    expect((await postar("/api/premissas/conjuntos/abc/duplicar", {})).statusCode).toBe(404);
+  });
+
+  it("/carregar continua criando conjuntos novos normalmente", async () => {
+    const doc = { conjunto: { nome: "Doc", vigenciaInicio: "2027-01-01" }, linhas: [{ tributo: "CBS", aliquota: "1", origem: "usuario" }] };
+    expect((await postar("/api/premissas/carregar", doc)).statusCode).toBe(201);
+    expect((await postar("/api/premissas/carregar", doc)).statusCode).toBe(201);
+  });
+});

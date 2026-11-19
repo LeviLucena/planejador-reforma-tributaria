@@ -1,5 +1,5 @@
 import type { Banco } from "../db/banco.js";
-import { ENTRADA_INVALIDA, ErroDominio, NAO_ENCONTRADO } from "../dominio/erros.js";
+import { CONJUNTO_VALIDADO, ENTRADA_INVALIDA, ErroDominio, NAO_ENCONTRADO } from "../dominio/erros.js";
 import { UFS } from "../dominio/ufs.js";
 
 export type TributoPremissa = "CBS" | "IBS_UF" | "IBS_MUN" | "IS_ADVALOREM" | "IS_ADREM";
@@ -74,6 +74,17 @@ function validarAliquota(a: unknown): void {
 }
 
 export function adicionarPremissa(banco: Banco, conjuntoId: number, p: PremissaEntrada): number {
+  // Conjunto validado é imutável: o que a pessoa conferiu não pode mudar depois (duplique para editar).
+  const atual = banco.prepare("SELECT validado_por FROM conjunto_premissas WHERE id = ?").get(conjuntoId) as
+    | { validado_por: string | null }
+    | undefined;
+  if (atual && atual.validado_por !== null) {
+    throw new ErroDominio(
+      CONJUNTO_VALIDADO,
+      "Este conjunto já foi validado e não pode ser alterado. Duplique-o para criar uma versão editável.",
+      409,
+    );
+  }
   if (!TRIBUTOS.includes(p.tributo)) {
     throw new ErroDominio(ENTRADA_INVALIDA, `tributo inválido: "${String(p.tributo)}".`, 400);
   }
@@ -250,4 +261,31 @@ export function validarConjunto(banco: Banco, id: number, validadoPor: string): 
     .run(nome, new Date().toISOString(), id);
   if (r.changes === 0) throw new ErroDominio(NAO_ENCONTRADO, `Conjunto de premissas ${id} não encontrado.`, 404);
   return obterConjunto(banco, id);
+}
+
+/**
+ * Copia um conjunto (e todas as suas linhas, campos de fonte idênticos) para um novo conjunto NÃO validado,
+ * numa única transação. O nome vira "<nome> (cópia)", com número se já existir.
+ */
+export function duplicarConjunto(banco: Banco, id: number): number {
+  return banco.transaction(() => {
+    const orig = obterConjunto(banco, id);
+    const nomes = new Set(listarConjuntos(banco).map((c) => c.nome));
+    let nome = `${orig.nome} (cópia)`;
+    for (let n = 2; nomes.has(nome); n++) nome = `${orig.nome} (cópia ${n})`;
+    const novo = Number(
+      banco
+        .prepare("INSERT INTO conjunto_premissas (nome, vigencia_inicio, vigencia_fim, observacao) VALUES (?, ?, ?, ?)")
+        .run(nome, orig.vigenciaInicio, orig.vigenciaFim, orig.observacao).lastInsertRowid,
+    );
+    banco
+      .prepare(
+        `INSERT INTO premissa_aliquota
+           (conjunto_id, tributo, uf, municipio_ibge, aliquota, origem, fonte_norma, fonte_artigo, consultado_em)
+         SELECT ?, tributo, uf, municipio_ibge, aliquota, origem, fonte_norma, fonte_artigo, consultado_em
+           FROM premissa_aliquota WHERE conjunto_id = ? ORDER BY id`,
+      )
+      .run(novo, id);
+    return novo;
+  })();
 }
