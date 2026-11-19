@@ -9,7 +9,12 @@ Esquema formal: [`schema.json`](schema.json). Estrutura:
 
 ```json
 {
-  "conjunto": { "nome": "texto", "vigenciaInicio": "AAAA-MM-DD", "observacao": "texto (opcional)" },
+  "conjunto": {
+    "nome": "texto",
+    "vigenciaInicio": "AAAA-MM-DD",
+    "vigenciaFim": "AAAA-MM-DD (opcional)",
+    "observacao": "texto (opcional)"
+  },
   "linhas": [
     {
       "tributo": "CBS | IBS_UF | IBS_MUN | IS_ADVALOREM | IS_ADREM",
@@ -36,8 +41,11 @@ Regras aplicadas por `carregarArquivo` (`app/server/src/premissas/carregador.ts`
 - Linhas `usuario` não exigem fonte (cenários do próprio usuário e testes).
 - CBS e IS são nacionais (sem `uf`/`municipioIbge`); duplicata de tributo+UF+município no mesmo
   arquivo é rejeitada.
-- Um conjunto tem **uma única** `vigenciaInicio`. Valores com vigências diferentes vão em
-  arquivos diferentes.
+- Um conjunto tem **uma única** `vigenciaInicio` e, opcionalmente, uma `vigenciaFim` (inclusiva,
+  data válida, não anterior ao início). O resolvedor recusa (PREMISSA_AUSENTE) datas antes do início
+  e depois do fim; sem `vigenciaFim`, o conjunto vale para qualquer data a partir do início.
+  Valores com vigências diferentes vão em arquivos/conjuntos diferentes: **toda linha do conjunto
+  tem de valer no período inteiro de `vigenciaInicio` a `vigenciaFim`**.
 - **Tudo ou nada**: o arquivo inteiro é validado antes de gravar, e a gravação ocorre numa única
   transação. Arquivo rejeitado não deixa nada no banco (nem o conjunto).
 - `validado_por` / `validado_em` **nunca** são preenchidos pelo carregador; só o usuário valida.
@@ -50,17 +58,21 @@ npm -w app/server run premissas:carregar -- dados/premissas/2027-oficial.json
 
 ## Arquivos de dados
 
-| Arquivo | Vigência inicial | Conteúdo |
+| Arquivo | Vigência | Conteúdo |
 |---|---|---|
-| `2027-oficial.json` | 2027-01-01 | IBS estadual e municipal de 2027-2028 (LC 214/2025, art. 344). **Sem CBS e sem IS** (ver Lacunas). Pendente de validação humana. |
+| `2027-oficial.json` | 2027-01-01 a 2028-12-31 | IBS estadual e municipal de 2027-2028 (LC 214/2025, art. 344). **Sem CBS e sem IS** (ver Lacunas). Pendente de validação humana. |
 
 As duas linhas de IBS não têm `uf`/`municipioIbge`: o art. 344 fixa a mesma alíquota para todos os
 Estados e Municípios, e o resolvedor usa a linha sem UF como valor para qualquer UF/município.
-O art. 344 vale de 2027-01-01 a **2028-12-31**; o conjunto não tem data final, então **não usar
-este conjunto para datas a partir de 2029-01-01** (lá as alíquotas dependem de resolução do Senado).
+O art. 344 vale de 2027-01-01 a 2028-12-31, por isso o conjunto tem `vigenciaFim` 2028-12-31: a
+partir de 2029-01-01 o resolvedor o recusa (lá as alíquotas dependem de resolução do Senado).
 
-Como a CBS está ausente, o resolvedor recusa (PREMISSA_AUSENTE) qualquer cálculo com este conjunto
-até que a CBS de 2027 seja publicada e acrescentada. Isso é intencional: não se preenche por estimativa.
+Como a CBS está ausente, o resolvedor recusa (PREMISSA_AUSENTE) qualquer cálculo com este conjunto.
+Isso é intencional: não se preenche por estimativa. **Quando o Senado fixar a CBS de 2027**, ela
+**não** deve ser acrescentada a este conjunto (que vai até 2028-12-31): a alíquota de referência é
+fixada por ano (LC 214/2025, art. 349, I). O caminho é criar um conjunto por ano, por exemplo
+`2027-oficial` com vigência 2027-01-01 a 2027-12-31 contendo a CBS de 2027 e as duas linhas de IBS
+do art. 344, e outro para 2028 quando a CBS de 2028 existir (o IBS é repetido em cada um).
 
 Detalhe linha a linha, com o trecho literal da fonte: [`PARA-VALIDACAO.md`](PARA-VALIDACAO.md).
 

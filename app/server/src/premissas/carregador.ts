@@ -21,7 +21,7 @@ export const CAMPOS_LINHA = [
 ] as const;
 
 /** Campos aceitos no objeto "conjunto" (mesmos de dados/premissas/schema.json). */
-export const CAMPOS_CONJUNTO = ["nome", "vigenciaInicio", "observacao"] as const;
+export const CAMPOS_CONJUNTO = ["nome", "vigenciaInicio", "vigenciaFim", "observacao"] as const;
 
 const CAMPOS_RAIZ = ["conjunto", "linhas"] as const;
 const TRIBUTOS = ["CBS", "IBS_UF", "IBS_MUN", "IS_ADVALOREM", "IS_ADREM"];
@@ -109,7 +109,7 @@ function validarLinha(bruta: unknown, i: number): PremissaEntrada {
 }
 
 function validarArquivo(dados: unknown): {
-  conjunto: { nome: string; vigenciaInicio: string; observacao?: string };
+  conjunto: { nome: string; vigenciaInicio: string; vigenciaFim?: string; observacao?: string };
   linhas: PremissaEntrada[];
 } {
   if (!ehObjeto(dados)) invalido("Arquivo de premissas: a raiz deve ser um objeto { conjunto, linhas }.");
@@ -126,15 +126,32 @@ function validarArquivo(dados: unknown): {
   } catch (e) {
     invalido(`Arquivo de premissas, conjunto: ${(e as Error).message}`);
   }
+  if (c.vigenciaFim !== undefined) {
+    if (typeof c.vigenciaFim !== "string") {
+      invalido("Arquivo de premissas, conjunto: campo vigenciaFim deve ser data (AAAA-MM-DD).");
+    }
+    let fim: string;
+    try {
+      fim = validarDataIso(c.vigenciaFim, "vigenciaFim");
+    } catch (e) {
+      invalido(`Arquivo de premissas, conjunto: ${(e as Error).message}`);
+    }
+    if (fim < validarDataIso(c.vigenciaInicio, "vigenciaInicio")) {
+      invalido(
+        `Arquivo de premissas, conjunto: vigenciaFim (${fim}) não pode ser anterior a vigenciaInicio (${c.vigenciaInicio}).`,
+      );
+    }
+  }
   if (c.observacao !== undefined && typeof c.observacao !== "string") {
     invalido("Arquivo de premissas, conjunto: campo observacao deve ser texto.");
   }
   if (!Array.isArray(dados.linhas)) invalido("Arquivo de premissas: campo linhas ausente ou não é lista.");
 
-  const conjunto: { nome: string; vigenciaInicio: string; observacao?: string } = {
+  const conjunto: { nome: string; vigenciaInicio: string; vigenciaFim?: string; observacao?: string } = {
     nome: c.nome,
     vigenciaInicio: c.vigenciaInicio,
   };
+  if (c.vigenciaFim !== undefined) conjunto.vigenciaFim = c.vigenciaFim as string;
   if (c.observacao !== undefined) conjunto.observacao = c.observacao as string;
   return { conjunto, linhas: dados.linhas.map((l, i) => validarLinha(l, i)) };
 }

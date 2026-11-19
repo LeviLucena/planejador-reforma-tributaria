@@ -37,12 +37,24 @@ export function validarDataIso(valor: string, campo: string): string {
 
 export function criarConjunto(
   banco: Banco,
-  c: { nome: string; vigenciaInicio: string; observacao?: string },
+  c: { nome: string; vigenciaInicio: string; vigenciaFim?: string; observacao?: string },
 ): number {
-  validarDataIso(c.vigenciaInicio, "vigenciaInicio");
+  const inicio = validarDataIso(c.vigenciaInicio, "vigenciaInicio");
+  if (c.vigenciaFim !== undefined) {
+    const fim = validarDataIso(c.vigenciaFim, "vigenciaFim");
+    if (fim < inicio) {
+      throw new ErroDominio(
+        ENTRADA_INVALIDA,
+        `vigenciaFim (${fim}) não pode ser anterior a vigenciaInicio (${inicio}).`,
+        400,
+      );
+    }
+  }
   const r = banco
-    .prepare("INSERT INTO conjunto_premissas (nome, vigencia_inicio, observacao) VALUES (?, ?, ?)")
-    .run(c.nome, c.vigenciaInicio, c.observacao ?? null);
+    .prepare(
+      "INSERT INTO conjunto_premissas (nome, vigencia_inicio, vigencia_fim, observacao) VALUES (?, ?, ?, ?)",
+    )
+    .run(c.nome, c.vigenciaInicio, c.vigenciaFim ?? null, c.observacao ?? null);
   return Number(r.lastInsertRowid);
 }
 

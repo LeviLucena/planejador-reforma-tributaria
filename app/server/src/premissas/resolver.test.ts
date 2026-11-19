@@ -226,3 +226,58 @@ describe("resolverAliquotas", () => {
     expect({ res, cri, ok }).toEqual({ res: esperado, cri: esperado, ok: undefined });
   });
 });
+
+describe("data de término da vigência (vigenciaFim)", () => {
+  function conjuntoCompleto(vigenciaFim?: string): number {
+    const id = criarConjunto(banco, {
+      nome: "com fim",
+      vigenciaInicio: "2027-01-01",
+      ...(vigenciaFim === undefined ? {} : { vigenciaFim }),
+    });
+    adicionarPremissa(banco, id, usr("CBS", "8.8"));
+    adicionarPremissa(banco, id, usr("IBS_UF", "0.05"));
+    adicionarPremissa(banco, id, usr("IBS_MUN", "0.05"));
+    return id;
+  }
+
+  it("2028-12-31 ainda resolve; 2029-01-01 recusa citando a data de término", () => {
+    const id = conjuntoCompleto("2028-12-31");
+    expect(erro(() => resolverAliquotas(banco, id, "SP", 3550308, "2028-12-31"))).toBeUndefined();
+    expect(erro(() => resolverAliquotas(banco, id, "SP", 3550308, "2028-12-31T23:59:00-03:00"))).toBeUndefined();
+    const e = erro(() => resolverAliquotas(banco, id, "SP", 3550308, "2029-01-01"));
+    expect([e?.codigo, e?.status, e?.message.includes("2028-12-31"), /não está mais em vigor/.test(e?.message ?? "")]).toEqual([
+      "PREMISSA_AUSENTE",
+      422,
+      true,
+      true,
+    ]);
+    expect(erro(() => resolverAliquotas(banco, id, "SP", 3550308, "2030-01-01"))?.codigo).toBe("PREMISSA_AUSENTE");
+  });
+
+  it("conjunto sem vigenciaFim continua resolvendo datas tardias", () => {
+    const id = conjuntoCompleto();
+    expect(erro(() => resolverAliquotas(banco, id, "SP", 3550308, "2040-06-01"))).toBeUndefined();
+  });
+
+  it("criarConjunto grava vigenciaFim e rejeita data inválida ou anterior ao início", () => {
+    const id = conjuntoCompleto("2027-12-31");
+    expect(banco.prepare("SELECT vigencia_fim FROM conjunto_premissas WHERE id = ?").get(id)).toEqual({
+      vigencia_fim: "2027-12-31",
+    });
+    const invalida = erro(() =>
+      criarConjunto(banco, { nome: "x", vigenciaInicio: "2027-01-01", vigenciaFim: "2027-02-30" }),
+    );
+    const anterior = erro(() =>
+      criarConjunto(banco, { nome: "x", vigenciaInicio: "2027-01-01", vigenciaFim: "2026-12-31" }),
+    );
+    const mesmoDia = erro(() =>
+      criarConjunto(banco, { nome: "x", vigenciaInicio: "2027-01-01", vigenciaFim: "2027-01-01" }),
+    );
+    expect([invalida?.codigo, anterior?.codigo, anterior?.message.includes("vigenciaFim"), mesmoDia]).toEqual([
+      "ENTRADA_INVALIDA",
+      "ENTRADA_INVALIDA",
+      true,
+      undefined,
+    ]);
+  });
+});

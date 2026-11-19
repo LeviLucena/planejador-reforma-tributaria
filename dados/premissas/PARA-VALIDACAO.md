@@ -3,8 +3,8 @@
 **Nenhuma linha foi validada por humano. `validado_por` está vazio.**
 
 Levantamento feito em 2026-11-18. Alíquotas em percentual (`"0.05"` = 0,05%). Arquivo:
-`dados/premissas/2027-oficial.json` (conjunto com vigência inicial 2027-01-01; o art. 344 vale até
-2028-12-31).
+`dados/premissas/2027-oficial.json` (conjunto com vigência de 2027-01-01 a 2028-12-31, que é o
+período do art. 344; `vigenciaFim` = 2028-12-31 é dado do conjunto, não uma linha).
 
 | # | Tributo | Valor | Origem | Norma | Artigo | URL consultada | Trecho literal da fonte |
 |---|---|---|---|---|---|---|---|

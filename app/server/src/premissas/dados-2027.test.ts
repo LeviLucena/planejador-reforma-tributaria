@@ -7,6 +7,8 @@ const ARQUIVO = fileURLToPath(new URL("../../../../dados/premissas/2027-oficial.
 
 interface LinhaGravada {
   tributo: string;
+  uf: string | null;
+  municipio_ibge: string | null;
   aliquota: string;
   origem: string;
   fonte_norma: string | null;
@@ -15,26 +17,35 @@ interface LinhaGravada {
 }
 
 describe("dados/premissas/2027-oficial.json", () => {
-  it("carrega pelo carregador, com fonte completa em toda linha e nenhuma linha de usuário", () => {
+  it("carrega exatamente IBS_UF 0.05 e IBS_MUN 0.05 (art. 344), sem CBS, com fonte e vigência até 2028-12-31", () => {
     const banco = abrirBanco(":memory:");
     try {
       const r = carregarArquivo(banco, ARQUIVO);
-      // Zero linhas também seria aceitável (tudo lacuna); hoje há linhas do IBS 2027-2028.
-      expect(r.linhas).toBeGreaterThanOrEqual(0);
       const linhas = banco
-        .prepare("SELECT * FROM premissa_aliquota WHERE conjunto_id = ?")
+        .prepare("SELECT * FROM premissa_aliquota WHERE conjunto_id = ? ORDER BY tributo")
         .all(r.conjuntoId) as LinhaGravada[];
-      expect(linhas).toHaveLength(r.linhas);
+      expect(r.linhas).toBe(2);
+      expect(linhas.map((l) => [l.tributo, l.uf, l.municipio_ibge, l.aliquota, l.origem])).toEqual([
+        ["IBS_MUN", null, null, "0.05", "lei_transicao"],
+        ["IBS_UF", null, null, "0.05", "lei_transicao"],
+      ]);
+      expect(linhas.some((l) => l.tributo === "CBS")).toBe(false);
       for (const l of linhas) {
-        expect(l.origem).not.toBe("usuario");
-        expect(l.fonte_norma?.trim()).toBeTruthy();
-        expect(l.fonte_artigo?.trim()).toBeTruthy();
+        expect(l.fonte_norma).toBe("Lei Complementar nº 214, de 16 de janeiro de 2025");
+        expect(l.fonte_artigo).toMatch(/^art\. 344, caput/);
         expect(l.consultado_em).toBe("2026-11-18");
       }
       const conjunto = banco
-        .prepare("SELECT vigencia_inicio, validado_por, validado_em FROM conjunto_premissas WHERE id = ?")
+        .prepare(
+          "SELECT vigencia_inicio, vigencia_fim, validado_por, validado_em FROM conjunto_premissas WHERE id = ?",
+        )
         .get(r.conjuntoId);
-      expect(conjunto).toEqual({ vigencia_inicio: "2027-01-01", validado_por: null, validado_em: null });
+      expect(conjunto).toEqual({
+        vigencia_inicio: "2027-01-01",
+        vigencia_fim: "2028-12-31",
+        validado_por: null,
+        validado_em: null,
+      });
     } finally {
       banco.close();
     }

@@ -2,7 +2,8 @@
   "conjunto": {
     "nome": "Oficial 2027 (levantado em 2026-11-18, pendente de validação)",
     "vigenciaInicio": "2027-01-01",
-    "observacao": "IBS 2027-2028 fixado na LC 214/2025, art. 344 (vale de 2027-01-01 a 2028-12-31). CBS 2027 ausente: alíquota de referência ainda não fixada por resolução do Senado em 2026-11-18. Imposto Seletivo ausente (alíquotas por produto, MP 1.399/2026). Ver dados/premissas/README.md, seção Lacunas. Nenhuma linha validada por humano."
+    "vigenciaFim": "2028-12-31",
+    "observacao": "IBS 2027-2028 fixado na LC 214/2025, art. 344 (vale de 2027-01-01 a 2028-12-31; vigenciaFim do conjunto = 2028-12-31). CBS 2027 ausente: alíquota de referência ainda não fixada por resolução do Senado em 2026-11-18. Imposto Seletivo ausente (alíquotas por produto, MP 1.399/2026). Ver dados/premissas/README.md, seção Lacunas. Nenhuma linha validada por humano."
   },
   "linhas": [
     {

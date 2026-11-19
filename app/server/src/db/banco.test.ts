@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import Database from "better-sqlite3";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -98,6 +99,34 @@ describe("migrações", () => {
     const de_novo = abrirBanco(arquivo);
     const n = de_novo.prepare("SELECT COUNT(*) AS n FROM migracoes").get();
     de_novo.close();
-    expect(n).toEqual({ n: 2 });
+    expect(n).toEqual({ n: 3 });
+  });
+
+  it("banco que já tinha 001+002 recebe só a 003 e preserva os dados", () => {
+    const arquivo = join(pasta, "antigo.db");
+    mkdirSync(pasta, { recursive: true });
+    const antigo = new Database(arquivo);
+    antigo.exec("CREATE TABLE migracoes (nome TEXT PRIMARY KEY, aplicada_em TEXT NOT NULL)");
+    for (const nome of ["001_inicial.sql", "002_unicidade_premissa.sql"]) {
+      antigo.exec(readFileSync(new URL(`./migracoes/${nome}`, import.meta.url), "utf8"));
+      antigo.prepare("INSERT INTO migracoes (nome, aplicada_em) VALUES (?, '2026-11-01T00:00:00Z')").run(nome);
+    }
+    antigo.prepare("INSERT INTO conjunto_premissas (nome, vigencia_inicio) VALUES ('velho', '2027-01-01')").run();
+    antigo.close();
+
+    const b = abrirBanco(arquivo);
+    const migracoes = b.prepare("SELECT nome, aplicada_em FROM migracoes ORDER BY nome").all() as {
+      nome: string;
+      aplicada_em: string;
+    }[];
+    const conjunto = b.prepare("SELECT nome, vigencia_fim FROM conjunto_premissas").get();
+    b.close();
+    expect(migracoes.map((m) => m.nome)).toEqual([
+      "001_inicial.sql",
+      "002_unicidade_premissa.sql",
+      "003_vigencia_fim.sql",
+    ]);
+    expect(migracoes.slice(0, 2).every((m) => m.aplicada_em === "2026-11-01T00:00:00Z")).toBe(true);
+    expect(conjunto).toEqual({ nome: "velho", vigencia_fim: null });
   });
 });

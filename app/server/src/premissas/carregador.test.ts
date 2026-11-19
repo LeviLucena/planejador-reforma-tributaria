@@ -106,6 +106,26 @@ describe("carregarArquivo", () => {
     expect(mun).toEqual({ aliquota: "0.05", municipio_ibge: "3550308" });
   });
 
+  it("vigenciaFim do conjunto é gravada; fim anterior ao início rejeita sem gravar nada", () => {
+    const r = carregarArquivo(
+      banco,
+      escrever("fim.json", { conjunto: { ...conjunto, vigenciaFim: "2027-12-31" }, linhas: linhasUsuario }),
+    );
+    expect(banco.prepare("SELECT vigencia_fim FROM conjunto_premissas WHERE id = ?").get(r.conjuntoId)).toEqual({
+      vigencia_fim: "2027-12-31",
+    });
+    const antes = contagens();
+    const e = erro(() =>
+      carregarArquivo(
+        banco,
+        escrever("fim-ruim.json", { conjunto: { ...conjunto, vigenciaFim: "2026-12-31" }, linhas: linhasUsuario }),
+      ),
+    );
+    expect(e?.codigo).toBe("ENTRADA_INVALIDA");
+    expect(e?.message).toContain("vigenciaFim");
+    expect(contagens()).toEqual(antes);
+  });
+
   it("JSON malformado gera ENTRADA_INVALIDA", () => {
     const e = erro(() => carregarArquivo(banco, escrever("ruim.json", "{ conjunto: ")));
     expect(e?.codigo).toBe("ENTRADA_INVALIDA");

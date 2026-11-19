@@ -13,6 +13,7 @@
       "properties": {
         "nome": { "type": "string", "minLength": 1 },
         "vigenciaInicio": { "type": "string", "format": "date", "description": "AAAA-MM-DD; um conjunto tem uma única vigência inicial" },
+        "vigenciaFim": { "type": "string", "format": "date", "description": "AAAA-MM-DD, inclusiva e >= vigenciaInicio; opcional (ausente = sem término conhecido). Depois dela o resolvedor recusa o conjunto." },
         "observacao": { "type": "string" }
       }
     },

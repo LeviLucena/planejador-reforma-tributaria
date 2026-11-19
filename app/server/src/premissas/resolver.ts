@@ -17,8 +17,8 @@ export function resolverAliquotas(
 ): { aliquotas: AliquotasNominais; origens: Record<string, OrigemPremissa> } {
   const dia = validarDataIso(data, "data");
   const conjunto = banco
-    .prepare("SELECT vigencia_inicio FROM conjunto_premissas WHERE id = ?")
-    .get(conjuntoId) as { vigencia_inicio: string } | undefined;
+    .prepare("SELECT vigencia_inicio, vigencia_fim FROM conjunto_premissas WHERE id = ?")
+    .get(conjuntoId) as { vigencia_inicio: string; vigencia_fim: string | null } | undefined;
   if (!conjunto) {
     throw new ErroDominio(PREMISSA_AUSENTE, `Conjunto de premissas ${conjuntoId} não encontrado.`, 422);
   }
@@ -26,6 +26,13 @@ export function resolverAliquotas(
     throw new ErroDominio(
       PREMISSA_AUSENTE,
       `O conjunto de premissas ${conjuntoId} não está em vigor em ${dia} (vigência a partir de ${conjunto.vigencia_inicio}).`,
+      422,
+    );
+  }
+  if (conjunto.vigencia_fim !== null && dia > conjunto.vigencia_fim.slice(0, 10)) {
+    throw new ErroDominio(
+      PREMISSA_AUSENTE,
+      `O conjunto de premissas ${conjuntoId} não está mais em vigor em ${dia} (vigência terminou em ${conjunto.vigencia_fim}).`,
       422,
     );
   }
