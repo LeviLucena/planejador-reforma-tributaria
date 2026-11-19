@@ -1,0 +1,15 @@
+export class ErroDominio extends Error {
+  readonly codigo: string;
+  readonly status: number;
+
+  constructor(codigo: string, mensagem: string, status: number) {
+    super(mensagem);
+    this.name = "ErroDominio";
+    this.codigo = codigo;
+    this.status = status;
+  }
+}
+
+export const MOTOR_INDISPONIVEL = "MOTOR_INDISPONIVEL"; // 503
+export const ENTRADA_INVALIDA = "ENTRADA_INVALIDA"; // 400
+export const PREMISSA_AUSENTE = "PREMISSA_AUSENTE"; // 422
