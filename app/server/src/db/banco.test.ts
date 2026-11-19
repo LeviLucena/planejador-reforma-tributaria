@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { criarTemporario } from "../test-utils/tmp.js";
 import { abrirBanco, type Banco } from "./banco.js";
 
 let banco: Banco;
@@ -87,16 +87,18 @@ describe("cenario e empresa", () => {
 });
 
 describe("migrações", () => {
+  let tmp: ReturnType<typeof criarTemporario>;
   let pasta: string;
   beforeEach(() => {
-    pasta = mkdtempSync(join(tmpdir(), "reforma-banco-"));
+    tmp = criarTemporario("reforma-banco-");
+    pasta = tmp.dir;
   });
-  afterEach(() => rmSync(pasta, { recursive: true, force: true }));
+  afterEach(() => tmp.limpar());
 
   it("abrir o mesmo arquivo duas vezes não reaplica; cria diretório pai", () => {
     const arquivo = join(pasta, "sub", "teste.db");
-    abrirBanco(arquivo).close();
-    const de_novo = abrirBanco(arquivo);
+    tmp.rastrear(abrirBanco(arquivo)).close();
+    const de_novo = tmp.rastrear(abrirBanco(arquivo));
     const n = de_novo.prepare("SELECT COUNT(*) AS n FROM migracoes").get();
     de_novo.close();
     expect(n).toEqual({ n: 4 });
@@ -105,7 +107,7 @@ describe("migrações", () => {
   it("banco que já tinha 001+002 recebe só a 003 e preserva os dados", () => {
     const arquivo = join(pasta, "antigo.db");
     mkdirSync(pasta, { recursive: true });
-    const antigo = new Database(arquivo);
+    const antigo = tmp.rastrear(new Database(arquivo));
     antigo.exec("CREATE TABLE migracoes (nome TEXT PRIMARY KEY, aplicada_em TEXT NOT NULL)");
     for (const nome of ["001_inicial.sql", "002_unicidade_premissa.sql"]) {
       antigo.exec(readFileSync(new URL(`./migracoes/${nome}`, import.meta.url), "utf8"));
@@ -114,7 +116,7 @@ describe("migrações", () => {
     antigo.prepare("INSERT INTO conjunto_premissas (nome, vigencia_inicio) VALUES ('velho', '2027-01-01')").run();
     antigo.close();
 
-    const b = abrirBanco(arquivo);
+    const b = tmp.rastrear(abrirBanco(arquivo));
     const migracoes = b.prepare("SELECT nome, aplicada_em FROM migracoes ORDER BY nome").all() as {
       nome: string;
       aplicada_em: string;

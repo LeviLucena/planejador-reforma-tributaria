@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
@@ -8,16 +7,17 @@ import { abrirBanco } from "../db/banco.js";
 import type { OperacaoEntrada } from "../dominio/tipos.js";
 import { criarMotores } from "../motores/regimeRegular.js";
 import { adicionarPremissa, criarConjunto } from "../premissas/repositorio.js";
+import { criarTemporario } from "../test-utils/tmp.js";
 
 const oficial = JSON.parse(
   readFileSync(new URL("../../test/fixtures/operacao-oficial.json", import.meta.url), "utf8"),
 ) as OperacaoEntrada;
-const pasta = mkdtempSync(join(tmpdir(), "reforma-int-"));
-afterAll(() => rmSync(pasta, { recursive: true, force: true }));
+const tmp = criarTemporario("reforma-int-");
+afterAll(() => tmp.limpar());
 
 describe("empresa + cenário ponta a ponta com o motor real e banco em arquivo", () => {
   it("salva, reabre e recalcula com os totais oficiais", async () => {
-    const banco = abrirBanco(join(pasta, "teste.db"));
+    const banco = tmp.rastrear(abrirBanco(join(tmp.dir, "teste.db")));
     const app = buildApp({ motores: criarMotores(config), banco });
 
     const c = criarConjunto(banco, { nome: "usuário", vigenciaInicio: "2027-01-01" });
@@ -70,6 +70,5 @@ describe("empresa + cenário ponta a ponta com o motor real e banco em arquivo",
     expect(v2.statusCode).toBe(201);
     expect(v2.json().versaoNumero).toBe(2);
     expect(v2.json().resultado).toEqual(resultado);
-    banco.close();
   });
 });
