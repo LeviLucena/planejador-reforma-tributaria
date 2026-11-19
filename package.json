@@ -1,5 +1,15 @@
 {
   "name": "reforma-tributaria",
   "private": true,
-  "workspaces": ["app/server", "app/web"]
+  "workspaces": [
+    "app/server",
+    "app/web"
+  ],
+  "scripts": {
+    "start": "npm -w app/server run start",
+    "test": "npm -w app/server test && npm -w app/web test",
+    "test:integracao": "npm -w app/server run test:integracao",
+    "build": "npm -w app/web run build",
+    "typecheck": "npm -w app/server run typecheck && npm -w app/web run typecheck"
+  }
 }
