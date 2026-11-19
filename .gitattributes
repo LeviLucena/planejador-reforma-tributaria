@@ -1,3 +1,5 @@
 app/server/test/fixtures/* -text
 *.bat text eol=crlf
 *.ps1 text eol=crlf
+app/web/src/exemplos/*.json -text
+app/web/src/test/*.json -text
