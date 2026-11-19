@@ -105,7 +105,7 @@ O cálculo é feito pelas calculadoras de código aberto da Receita Federal (lic
 - [calculadora-rtc-regime-regular](https://github.com/ReceitaFederal/calculadora-rtc-regime-regular)
 - [calculadora-rtc-simples-nacional](https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional)
 
-Este projeto as usa **sem modificá-las**. Parte do desenvolvimento foi feita com apoio de IA (Claude Code); o histórico de commits registra isso.
+Este projeto as usa **sem modificá-las**. Parte do desenvolvimento foi feita com apoio de IA.
 
 ## Licença
 
