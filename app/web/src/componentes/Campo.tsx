@@ -7,6 +7,8 @@ interface Props {
   rotulo: string;
   erro?: string;
   dica?: string;
+  /** Classe extra no contêiner (ex.: "largo" ocupa 2 colunas da grade em telas largas). */
+  className?: string;
   /** Recebe os atributos de acessibilidade que ligam o controle à dica e ao erro. */
   children: (acess: { id: string; "aria-invalid"?: true; "aria-describedby"?: string }) => ReactNode;
 }
@@ -25,10 +27,10 @@ function Rotulo({ texto }: { texto: string }) {
 }
 
 /** Rótulo + controle + dica + mensagem de erro, ligados por aria-describedby e aria-invalid. */
-export function Campo({ id, rotulo, erro, dica, children }: Props) {
+export function Campo({ id, rotulo, erro, dica, className, children }: Props) {
   const ids = [dica ? `${id}-dica` : null, erro ? `${id}-erro` : null].filter(Boolean).join(" ");
   return (
-    <div className="campo">
+    <div className={className ? `campo ${className}` : "campo"}>
       <label htmlFor={id}>
         <Rotulo texto={rotulo} />
       </label>

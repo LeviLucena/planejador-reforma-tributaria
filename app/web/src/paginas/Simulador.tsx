@@ -217,14 +217,14 @@ export function PaginaSimulador({ aoSimular, aoIniciar }: Props) {
                 <input {...a} inputMode="numeric" maxLength={7} value={form.municipio} onChange={(ev) => mudar({ municipio: ev.target.value })} />
               )}
             </Campo>
-            <Campo id="dataHora" rotulo="Data e hora do fato gerador (horário de Brasília)" erro={erros.dataHora} dica="Sempre enviada no horário de Brasília (-03:00), qualquer que seja o fuso do seu navegador.">
+            <Campo id="dataHora" className="largo" rotulo="Data e hora do fato gerador (horário de Brasília)" erro={erros.dataHora} dica="Sempre enviada no horário de Brasília (-03:00), qualquer que seja o fuso do seu navegador.">
               {(a) => (
                 <input {...a} type="datetime-local" value={form.dataHora} onChange={(ev) => mudar({ dataHora: ev.target.value })} />
               )}
             </Campo>
-            <Campo id="conjunto" rotulo="Conjunto de premissas" erro={erros.conjunto}>
+            <Campo id="conjunto" className="largo" rotulo="Conjunto de premissas" erro={erros.conjunto}>
               {(a) => (
-                <select {...a} value={form.conjuntoId} disabled={conjuntos === null || semConjuntos} onChange={(ev) => mudar({ conjuntoId: ev.target.value })}>
+                <select {...a} title={conjunto ? descreverConjunto(conjunto) : undefined} value={form.conjuntoId} disabled={conjuntos === null || semConjuntos} onChange={(ev) => mudar({ conjuntoId: ev.target.value })}>
                   {(conjuntos === null || semConjuntos) && <option value="">{conjuntos === null ? "Carregando…" : "Nenhum disponível"}</option>}
                   {(conjuntos ?? []).map((c) => (
                     <option key={c.id} value={c.id}>

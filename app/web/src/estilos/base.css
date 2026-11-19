@@ -10,6 +10,14 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Rede de segurança: nenhuma página rola na horizontal (tabelas largas rolam dentro do próprio contêiner).
+   "clip" não cria contêiner de rolagem, então o cabeçalho fixo (sticky) continua funcionando. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;

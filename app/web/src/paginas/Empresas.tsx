@@ -157,7 +157,7 @@ export function PaginaEmpresas() {
         <fieldset className="bloco">
           <legend>{editando ? `Editar empresa: ${editando.razaoSocial}` : "Nova empresa"}</legend>
           <div className="grade">
-            <Campo id="emp-razao" rotulo="Razão social" erro={erros.razaoSocial}>
+            <Campo id="emp-razao" className="largo" rotulo="Razão social" erro={erros.razaoSocial}>
               {(a) => <input {...a} value={form.razaoSocial} onChange={(ev) => mudar({ razaoSocial: ev.target.value })} />}
             </Campo>
             <Campo id="emp-cnpj" rotulo="CNPJ" erro={erros.cnpj} dica="Com ou sem pontuação; é guardado só com os 14 dígitos.">

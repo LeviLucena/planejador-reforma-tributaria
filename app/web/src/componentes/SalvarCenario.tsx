@@ -120,9 +120,9 @@ export function SalvarCenario({ requisicao, exibido }: Props) {
       {empresas !== null && empresas.length > 0 && (
         <form onSubmit={salvar} noValidate>
           <div className="grade">
-            <Campo id="cen-empresa" rotulo="Empresa" erro={erros.empresa}>
+            <Campo id="cen-empresa" className="largo" rotulo="Empresa" erro={erros.empresa}>
               {(a) => (
-                <select {...a} value={empresaId} onChange={(ev) => setEmpresaId(ev.target.value)}>
+                <select {...a} title={empresaEscolhida ? `${empresaEscolhida.razaoSocial} — ${formatarCnpj(empresaEscolhida.cnpj)}` : undefined} value={empresaId} onChange={(ev) => setEmpresaId(ev.target.value)}>
                   <option value="">Selecione</option>
                   {empresas.map((e) => (
                     <option key={e.id} value={e.id}>
@@ -138,7 +138,7 @@ export function SalvarCenario({ requisicao, exibido }: Props) {
                 {AVISO_SIMPLES}
               </p>
             )}
-            <Campo id="cen-nome" rotulo="Nome do cenário" erro={erros.nome}>
+            <Campo id="cen-nome" className="largo" rotulo="Nome do cenário" erro={erros.nome}>
               {(a) => <input {...a} value={nome} onChange={(ev) => setNome(ev.target.value)} />}
             </Campo>
           </div>
