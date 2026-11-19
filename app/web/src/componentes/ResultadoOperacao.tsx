@@ -20,9 +20,10 @@ interface PropsItem {
   cClassTribEntrada?: string;
   fundamentacoes: Fundamentacao[] | null;
   carregandoFundamentacoes: boolean;
+  reaberto: boolean;
 }
 
-function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFundamentacoes }: PropsItem) {
+function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFundamentacoes, reaberto }: PropsItem) {
   const [aberto, setAberto] = useState(false);
   const v = valoresDoItem(objeto);
   const cClassTrib = v.cClassTrib ?? cClassTribEntrada;
@@ -91,12 +92,34 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
                 </p>
               ))}
               <h4>Fundamentação legal</h4>
-              {carregandoFundamentacoes && <p className="dica">Carregando fundamentação…</p>}
-              {!carregandoFundamentacoes && fundamentacoes === null && (
-                <p className="dica">Fundamentação legal indisponível no momento.</p>
-              )}
-              {!carregandoFundamentacoes && fundamentacoes !== null && legais.length === 0 && (
-                <p className="dica">Nenhuma fundamentação encontrada para o cClassTrib {cClassTrib ?? "do item"} nesta data.</p>
+              {reaberto ? (
+                <>
+                  {carregandoFundamentacoes && <p className="dica">Consultando fundamentação legal…</p>}
+                  {!carregandoFundamentacoes && fundamentacoes === null && (
+                    <p className="dica">
+                      Não foi possível consultar a fundamentação legal agora (o motor oficial pode estar desligado). Ela não é guardada no
+                      cenário; o resultado acima continua válido.
+                    </p>
+                  )}
+                  {!carregandoFundamentacoes && fundamentacoes !== null && (
+                    <p className="dica">
+                      Fundamentação consultada agora no motor em execução (pode diferir da vigente na data do cálculo).
+                    </p>
+                  )}
+                  {!carregandoFundamentacoes && fundamentacoes !== null && legais.length === 0 && (
+                    <p className="dica">Nenhuma fundamentação encontrada para este cClassTrib.</p>
+                  )}
+                </>
+              ) : (
+                <>
+                {carregandoFundamentacoes && <p className="dica">Carregando fundamentação…</p>}
+                {!carregandoFundamentacoes && fundamentacoes === null && (
+                  <p className="dica">Fundamentação legal indisponível no momento.</p>
+                )}
+                {!carregandoFundamentacoes && fundamentacoes !== null && legais.length === 0 && (
+                  <p className="dica">Nenhuma fundamentação encontrada para o cClassTrib {cClassTrib ?? "do item"} nesta data.</p>
+                )}
+                </>
               )}
               {legais.map((f, i) => (
                 <div key={i} className="fundamentacao">
@@ -121,9 +144,11 @@ interface Props {
   fundamentacoes: Fundamentacao[] | null;
   /** true enquanto a fundamentação ainda está sendo buscada (o resultado já aparece antes dela). */
   carregandoFundamentacoes?: boolean;
+  /** Cenário salvo reaberto: a fundamentação é consultada agora (não é guardada) e os textos dizem isso. */
+  reaberto?: boolean;
 }
 
-export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamentacoes = false }: Props) {
+export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamentacoes = false, reaberto = false }: Props) {
   const totais = totaisDe(resposta.resultado);
   const origens = Object.entries(resposta.origensPremissas ?? {});
   const itensEntrada = resposta.entradaEnviada?.itens ?? [];
@@ -177,6 +202,7 @@ export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamen
           cClassTribEntrada={itensEntrada.find((i) => i.numero === o.nObj)?.cClassTrib}
           fundamentacoes={fundamentacoes}
           carregandoFundamentacoes={carregandoFundamentacoes}
+          reaberto={reaberto}
         />
       ))}
     </section>

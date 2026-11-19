@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { Cenario } from "../../../server/src/cenarios/repositorio";
+import type { Fundamentacao } from "../../../server/src/dominio/tipos";
 import type { Empresa } from "../../../server/src/empresas/repositorio";
 import type { ConjuntoResumo } from "../../../server/src/premissas/repositorio";
 import { cliente, ErroApi } from "../api/cliente";
@@ -51,6 +52,10 @@ export function PaginaEmpresaDetalhe() {
   const [aberto, setAberto] = useState<Cenario | null>(null);
   const [abrindo, setAbrindo] = useState(false);
   const [erroAbrir, setErroAbrir] = useState<string | null>(null);
+
+  const [fund, setFund] = useState<Fundamentacao[] | null>(null);
+  const [carregandoFund, setCarregandoFund] = useState(false);
+  const pedidoFund = useRef(0);
 
   const [recalculando, setRecalculando] = useState(false);
   const [erroRecalculo, setErroRecalculo] = useState<ErroApi | Error | null>(null);
@@ -119,6 +124,29 @@ export function PaginaEmpresaDetalhe() {
         setAbrindo(false);
       });
   }, [cenarioId, empresaId]);
+
+  // Fundamentação legal: consulta separada e não bloqueante; o resultado congelado já está na tela.
+  // Não é guardada no cenário, então vem do motor em execução agora (guarda de pedido por cenário exibido).
+  useEffect(() => {
+    const pedido = ++pedidoFund.current;
+    setFund(null);
+    if (!aberto) {
+      setCarregandoFund(false);
+      return;
+    }
+    const dh = aberto.entradaEnviada?.dhFatoGerador ?? aberto.entrada?.dhFatoGerador;
+    const data = typeof dh === "string" ? dh.slice(0, 10) : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      setCarregandoFund(false);
+      return;
+    }
+    setCarregandoFund(true);
+    cliente
+      .fundamentacoes(data)
+      .then((f) => pedido === pedidoFund.current && setFund(f))
+      .catch(() => pedido === pedidoFund.current && setFund(null))
+      .finally(() => pedido === pedidoFund.current && setCarregandoFund(false));
+  }, [aberto]);
 
   useEffect(() => {
     if (aberto) resultadoRef.current?.querySelector<HTMLElement>("h2")?.focus();
@@ -246,7 +274,9 @@ export function PaginaEmpresaDetalhe() {
           </div>
           <ResultadoOperacao
             resposta={{ resultado: aberto.resultado, entradaEnviada: aberto.entradaEnviada, origensPremissas: aberto.origensPremissas }}
-            fundamentacoes={null}
+            fundamentacoes={fund}
+            carregandoFundamentacoes={carregandoFund}
+            reaberto
           />
         </div>
       )}

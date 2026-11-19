@@ -146,3 +146,96 @@ describe("EmpresaDetalhe: recalcular", () => {
     expect(screen.getByRole("button", { name: "Recalcular" })).toBeEnabled();
   });
 });
+
+// ---- Base legal ao reabrir (fundamentação consultada agora; não é guardada no cenário) ----
+describe("EmpresaDetalhe: fundamentação legal ao reabrir", () => {
+  const dataDoExemplo = operacaoOficial.dhFatoGerador.slice(0, 10); // 2027-03-10, do exemplo oficial real
+  const rotuloConsultada = "Fundamentação consultada agora no motor em execução (pode diferir da vigente na data do cálculo).";
+  const falha = "Não foi possível consultar a fundamentação legal agora (o motor oficial pode estar desligado). Ela não é guardada no cenário; o resultado acima continua válido.";
+
+  async function abrirItem(n: number) {
+    const item = await screen.findByRole("article", { name: `Item ${n}` });
+    fireEvent.click(within(item).getByRole("button", { name: /Memória de cálculo e fundamentação legal/ }));
+    return item;
+  }
+
+  it("ao abrir faz só as leituras esperadas e UMA consulta de fundamentação na data do fato gerador", async () => {
+    const { s } = preparar();
+    await screen.findByLabelText("Selo do resultado congelado");
+    await waitFor(() => expect(s.chamadas.some((c) => c.url.startsWith("/api/fundamentacoes"))).toBe(true));
+    const urls = s.chamadas.map((c) => `${c.metodo} ${c.url}`);
+    expect([...urls].sort()).toEqual(
+      [
+        "GET /api/empresas/7",
+        "GET /api/empresas/7/cenarios",
+        "GET /api/premissas/conjuntos",
+        "GET /api/cenarios/100",
+        `GET /api/fundamentacoes?data=${dataDoExemplo}`,
+      ].sort(),
+    );
+    expect(urls.some((u) => u.includes("/api/classificacoes") || u.includes("/api/simular") || u.includes("/recalcular"))).toBe(false);
+    expect(urls.some((u) => u.startsWith("POST"))).toBe(false);
+  });
+
+  it("mostra a base legal do cClassTrib do item com o rótulo 'consultada agora'", async () => {
+    preparar();
+    const item = await abrirItem(1); // cClassTrib 200003
+    expect(await within(item).findByText(rotuloConsultada)).toBeInTheDocument();
+    expect(within(item).getByText("Art. 125")).toBeInTheDocument(); // textoCurto real do cClassTrib 200003
+    expect(within(item).queryByText(/indisponível no momento/)).toBeNull();
+  });
+
+  it("cClassTrib sem texto na lista: mensagem própria", async () => {
+    const { s } = preparar();
+    s.sobrescritas.set(`GET /api/fundamentacoes?data=${dataDoExemplo}`, () => resp(200, []));
+    const item = await abrirItem(1);
+    expect(await within(item).findByText("Nenhuma fundamentação encontrada para este cClassTrib.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["503 MOTOR_INDISPONIVEL", () => resp(503, { codigo: "MOTOR_INDISPONIVEL", mensagem: "fora" })],
+    ["rejeição de rede", () => Promise.reject(new TypeError("fail"))],
+  ])("falha (%s): o resultado congelado fica completo e aparece a mensagem de falha, não a antiga", async (_nome, falhar) => {
+    const { s } = preparar();
+    s.sobrescritas.set(`GET /api/fundamentacoes?data=${dataDoExemplo}`, falhar as never);
+    const item = await abrirItem(1);
+    expect(await within(item).findByText(falha)).toBeInTheDocument();
+    expect(screen.queryByText(/indisponível no momento/)).toBeNull();
+    expect(selo()).toHaveTextContent("versão 1");
+    const totais = within(screen.getByLabelText("Totais"));
+    for (const t of ["56,76", "0,64", "15,00"]) expect(totais.getByText(t)).toBeInTheDocument();
+    for (const n of [1, 2, 3]) expect(screen.getByRole("article", { name: `Item ${n}` })).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Item 4" })).getByText("REG-011")).toBeInTheDocument();
+  });
+
+  it("enquanto consulta mostra 'Consultando…' e o resultado já está na tela", async () => {
+    let liberar!: (r: Resp) => void;
+    preparar("/empresas/7?cenario=100", 2, (s) =>
+      s.sobrescritas.set(`GET /api/fundamentacoes?data=${dataDoExemplo}`, () => new Promise<Resp>((r) => (liberar = r))),
+    );
+    const item = await abrirItem(1);
+    expect(within(screen.getByLabelText("Totais")).getByText("56,76")).toBeInTheDocument();
+    expect(within(item).getByText("Consultando fundamentação legal…")).toBeInTheDocument();
+    await act(async () => liberar(resp(200, [])));
+  });
+
+  it("troca rápida de versões: fundamentação atrasada da versão antiga não aparece na nova", async () => {
+    const pendentes: ((r: Resp) => void)[] = [];
+    preparar("/empresas/7", 2, (s) => {
+      s.estado.cenarios.push(s.nova(7, "Venda interestadual", 2, operacaoOficial, 2)); // id 101
+      s.sobrescritas.set(`GET /api/fundamentacoes?data=${dataDoExemplo}`, () => new Promise<Resp>((r) => pendentes.push(r)));
+    });
+    const lista = await screen.findByRole("list", { name: "Versões de Venda interestadual" });
+    fireEvent.click(within(lista).getByRole("button", { name: "Versão 1" }));
+    await waitFor(() => expect(pendentes).toHaveLength(1));
+    fireEvent.click(within(lista).getByRole("button", { name: "Versão 2" }));
+    await waitFor(() => expect(pendentes).toHaveLength(2));
+    await waitFor(() => expect(selo()).toHaveTextContent("versão 2"));
+    const item = await abrirItem(1);
+    // a consulta da versão 2 termina primeiro (vazia); a da versão 1 chega depois com texto
+    await act(async () => pendentes[1]!(resp(200, [])));
+    await act(async () => pendentes[0]!(resp(200, [{ codigoClassificacaoTributaria: "200003", conjuntoTributo: "CBS", texto: "TEXTO ANTIGO", textoCurto: "ANTIGO", referenciaNormativa: "x" }])));
+    expect(within(item).getByText("Nenhuma fundamentação encontrada para este cClassTrib.")).toBeInTheDocument();
+    expect(screen.queryByText("ANTIGO")).toBeNull();
+  });
+});
