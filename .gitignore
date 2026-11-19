@@ -7,3 +7,6 @@ motores/*.json
 *.db
 *.db-*
 .env
+*.log
+scripts/.pids/
+scripts/.logs/
