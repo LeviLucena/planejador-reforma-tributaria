@@ -21,8 +21,12 @@ export type CorpoCenario = Pick<DadosCenario, "nome" | "operacao" | "conjuntoPre
 
 async function requisicao<T>(metodo: string, caminho: string, corpo?: unknown): Promise<T> {
   const init: RequestInit = { method: metodo };
-  if (corpo !== undefined) {
+  // O servidor recusa (415) POST/PUT/PATCH/DELETE sem Content-Type: application/json
+  // (proteção contra formulários e fetch "no-cors" de outros sites).
+  if (metodo !== "GET" && metodo !== "HEAD") {
     init.headers = { "Content-Type": "application/json" };
+  }
+  if (corpo !== undefined) {
     init.body = JSON.stringify(corpo);
   }
   let resposta: Response;
@@ -65,7 +69,7 @@ export const cliente = {
     adicionarLinha: (conjuntoId: number, linha: PremissaEntrada) =>
       requisicao<LinhaPremissa>("POST", `/api/premissas/conjuntos/${conjuntoId}/linhas`, linha),
     duplicar: (conjuntoId: number) =>
-      requisicao<ConjuntoResumo>("POST", `/api/premissas/conjuntos/${conjuntoId}/duplicar`),
+      requisicao<ConjuntoResumo>("POST", `/api/premissas/conjuntos/${conjuntoId}/duplicar`, {}),
     carregar: (documento: unknown) =>
       requisicao<{ conjuntoId: number; linhas: number }>("POST", "/api/premissas/carregar", documento),
     validar: (conjuntoId: number, validadoPor: string) =>
@@ -83,6 +87,6 @@ export const cliente = {
     salvar: (empresaId: number, dados: CorpoCenario) =>
       requisicao<Cenario>("POST", `/api/empresas/${empresaId}/cenarios`, dados),
     obter: (id: number) => requisicao<Cenario>("GET", `/api/cenarios/${id}`),
-    recalcular: (id: number) => requisicao<Cenario>("POST", `/api/cenarios/${id}/recalcular`),
+    recalcular: (id: number) => requisicao<Cenario>("POST", `/api/cenarios/${id}/recalcular`, {}),
   },
 };

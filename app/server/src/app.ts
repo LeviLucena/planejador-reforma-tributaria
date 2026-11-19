@@ -20,12 +20,60 @@ export interface OpcoesApp {
   logger?: boolean;
   /** Pasta da interface compilada (padrão app/web/dist); só é servida se existir. */
   diretorioWeb?: string;
+  /**
+   * Proteção contra páginas de outros sites (CSRF e DNS rebinding), ligada pelo index.ts.
+   * Sem ela (testes de rota com inject) o comportamento é o de antes.
+   */
+  protecaoLocal?: { porta: number; origensExtras?: string[] };
+}
+
+const METODOS_COM_CORPO = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function instalarProtecaoLocal(app: FastifyInstance, protecao: { porta: number; origensExtras?: string[] }): void {
+  const hosts = new Set([`127.0.0.1:${protecao.porta}`, `localhost:${protecao.porta}`]);
+  const origens = new Set([
+    `http://127.0.0.1:${protecao.porta}`,
+    `http://localhost:${protecao.porta}`,
+    ...(protecao.origensExtras ?? []),
+  ]);
+  const negado = {
+    codigo: "ACESSO_NEGADO",
+    mensagem: "Acesso negado: este app só atende a própria página, aberta em 127.0.0.1 ou localhost.",
+  };
+
+  // Vale para tudo: API, arquivos estáticos e o fallback da SPA.
+  app.addHook("onRequest", async (req, resposta) => {
+    const host = (req.headers.host ?? "").toLowerCase();
+    if (!hosts.has(host)) return resposta.status(403).send(negado);
+    const origem = req.headers.origin;
+    if (origem !== undefined && !origens.has(origem)) return resposta.status(403).send(negado);
+    if (METODOS_COM_CORPO.has(req.method)) {
+      const tipo = (req.headers["content-type"] ?? "").split(";")[0]?.trim().toLowerCase();
+      if (tipo !== "application/json") {
+        return resposta.status(415).send({
+          codigo: "TIPO_NAO_SUPORTADO",
+          mensagem: "Tipo de conteúdo não suportado: envie Content-Type: application/json.",
+        });
+      }
+    }
+  });
+
+  // Nenhum corpo de texto é interpretado; JSON vazio (ex.: DELETE) vira undefined.
+  app.removeContentTypeParser("text/plain");
+  const jsonPadrao = app.getDefaultJsonParser("error", "error");
+  app.removeContentTypeParser("application/json");
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, corpo, feito) => {
+    const texto = typeof corpo === "string" ? corpo : corpo.toString("utf8");
+    if (texto === "") return feito(null, undefined);
+    jsonPadrao(req, texto, feito);
+  });
 }
 
 const DIRETORIO_WEB_PADRAO = fileURLToPath(new URL("../../web/dist", import.meta.url));
 
 export function buildApp(opcoes: OpcoesApp = {}): FastifyInstance {
   const app = Fastify({ logger: opcoes.logger ?? false });
+  if (opcoes.protecaoLocal) instalarProtecaoLocal(app, opcoes.protecaoLocal);
 
   app.setErrorHandler((erro: Error, _req, resposta) => {
     if (erro instanceof ErroDominio) {

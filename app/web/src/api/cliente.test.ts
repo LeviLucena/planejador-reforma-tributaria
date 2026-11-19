@@ -79,6 +79,23 @@ describe("cliente", () => {
     const [url, init] = fetchFalso.mock.calls[0];
     expect(url).toBe(caminho);
     expect(init.method).toBe(metodo);
+    // I4: métodos que alteram sempre levam Content-Type JSON; GET não leva.
+    if (metodo === "GET") expect(init.headers).toBeUndefined();
+    else expect(init.headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("recalcular e remover levam Content-Type JSON; recalcular envia {} como corpo", async () => {
+    const fetchFalso = vi.fn().mockResolvedValue(resposta(200, {}));
+    vi.stubGlobal("fetch", fetchFalso);
+    await cliente.cenarios.recalcular(5);
+    let init = fetchFalso.mock.calls[0][1];
+    expect(init.headers["Content-Type"]).toBe("application/json");
+    expect(init.body).toBe("{}");
+    fetchFalso.mockResolvedValue(resposta(204));
+    await cliente.empresas.remover(2);
+    init = fetchFalso.mock.calls[1][1];
+    expect(init.headers["Content-Type"]).toBe("application/json");
+    expect(init.body).toBeUndefined();
   });
 });
 
@@ -87,7 +104,7 @@ describe("cliente.premissas", () => {
     ["criarConjunto", () => cliente.premissas.criarConjunto({ nome: "a", vigenciaInicio: "2027-01-01" }), "POST", "/api/premissas/conjuntos", { nome: "a", vigenciaInicio: "2027-01-01" }],
     ["linhas", () => cliente.premissas.linhas(3), "GET", "/api/premissas/conjuntos/3/linhas", undefined],
     ["adicionarLinha", () => cliente.premissas.adicionarLinha(3, { tributo: "CBS", aliquota: "1", origem: "usuario" }), "POST", "/api/premissas/conjuntos/3/linhas", { tributo: "CBS", aliquota: "1", origem: "usuario" }],
-    ["duplicar", () => cliente.premissas.duplicar(3), "POST", "/api/premissas/conjuntos/3/duplicar", undefined],
+    ["duplicar", () => cliente.premissas.duplicar(3), "POST", "/api/premissas/conjuntos/3/duplicar", {}],
     ["carregar", () => cliente.premissas.carregar({ conjunto: {}, linhas: [] }), "POST", "/api/premissas/carregar", { conjunto: {}, linhas: [] }],
     ["validar", () => cliente.premissas.validar(3, "Ana"), "POST", "/api/premissas/conjuntos/3/validar", { validadoPor: "Ana" }],
   ])("%s usa o método, o caminho e o corpo certos", async (_n, chamar, metodo, caminho, corpo) => {
