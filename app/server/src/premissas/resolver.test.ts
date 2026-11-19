@@ -281,3 +281,26 @@ describe("data de término da vigência (vigenciaFim)", () => {
     ]);
   });
 });
+
+describe("resolverAliquotas com opcoes.exigir (I2: só o tributo que falta)", () => {
+  it("exigir só IS: conjunto sem CBS/IBS resolve o IS; sem IS recusa citando IS", () => {
+    adicionarPremissa(banco, c, usr("IS_ADVALOREM", "10.0"));
+    const r = resolverAliquotas(banco, c, "SP", 3550308, "2027-06-01", { exigir: ["IS"] });
+    expect(r).toEqual({ aliquotas: { impostoSeletivo: { adValorem: "10.0" } }, origens: { IS_ADVALOREM: "usuario" } });
+    const vazio = criarConjunto(banco, { nome: "vazio", vigenciaInicio: "2027-01-01" });
+    const e = erro(() => resolverAliquotas(banco, vazio, "SP", 3550308, "2027-06-01", { exigir: ["IS"] }));
+    expect(e?.codigo).toBe("PREMISSA_AUSENTE");
+    expect(e?.message).toMatch(/IS \(IS_ADVALOREM ou IS_ADREM\)/);
+  });
+
+  it("exigir só CBS: falta de IBS no conjunto não recusa", () => {
+    adicionarPremissa(banco, c, usr("CBS", "8.8"));
+    const r = resolverAliquotas(banco, c, "SP", 3550308, "2027-06-01", { exigir: ["CBS"] });
+    expect(r.aliquotas).toEqual({ cbs: "8.8" });
+  });
+
+  it("sem opcoes, o padrão continua exigindo CBS, IBS_UF e IBS_MUN", () => {
+    adicionarPremissa(banco, c, usr("IS_ADVALOREM", "10.0"));
+    expect(erro(() => resolverAliquotas(banco, c, "SP", 3550308, "2027-06-01"))?.message).toMatch(/CBS/);
+  });
+});

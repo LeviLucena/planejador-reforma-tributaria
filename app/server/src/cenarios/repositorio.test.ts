@@ -5,7 +5,7 @@ import { ErroDominio, MOTOR_INDISPONIVEL } from "../dominio/erros.js";
 import type { OperacaoEntrada, ResultadoOperacao } from "../dominio/tipos.js";
 import { criarEmpresa, excluirEmpresa } from "../empresas/repositorio.js";
 import type { MotoresPort } from "../motores/regimeRegular.js";
-import { adicionarPremissa, criarConjunto } from "../premissas/repositorio.js";
+import { adicionarPremissa, criarConjunto, validarConjunto } from "../premissas/repositorio.js";
 import { listarCenarios, reabrirCenario, recalcularCenario, salvarCenario } from "./repositorio.js";
 
 const ler = (n: string) => readFileSync(new URL(`../../test/fixtures/${n}`, import.meta.url), "utf8");
@@ -227,5 +227,95 @@ describe("listar e excluir", () => {
     expect(contar()).toBe(1);
     excluirEmpresa(banco, empresaId);
     expect(contar()).toBe(0);
+  });
+});
+
+describe("versão do motor ao salvar (I1)", () => {
+  // Fakes só para isolar a rede; o resultado é a resposta oficial gravada.
+  const comVersoes = (versoes: () => Promise<unknown>) =>
+    ({ ...motores, calcularOperacao: motores.calcularOperacao, versoes } as unknown as MotoresPort);
+
+  it("motor do Simples fora do ar não impede salvar: grava simples=indisponivel", async () => {
+    const m = comVersoes(async () => ({ regimeRegular: "1.6.1+V0059", simples: null }));
+    const c = await salvarCenario(
+      { motores: m, banco },
+      { empresaId, nome: "Sem Simples", operacao: operacaoSemAliquotas(), conjuntoPremissasId: conjuntoId },
+    );
+    expect(c.versaoMotor).toBe("regular=1.6.1+V0059; simples=indisponivel");
+    const v2 = await recalcularCenario({ motores: m, banco }, c.id);
+    expect(v2.versaoMotor).toBe("regular=1.6.1+V0059; simples=indisponivel");
+  });
+
+  it("motor do regime regular fora do ar continua impedindo salvar (nada gravado)", async () => {
+    const m = comVersoes(async () => {
+      throw new ErroDominio(MOTOR_INDISPONIVEL, "regular fora", 503);
+    });
+    const e = await recusa(
+      salvarCenario(
+        { motores: m, banco },
+        { empresaId, nome: "X", operacao: operacaoSemAliquotas(), conjuntoPremissasId: conjuntoId },
+      ),
+    );
+    expect(e!.codigo).toBe(MOTOR_INDISPONIVEL);
+    expect(contar()).toBe(0);
+  });
+});
+
+describe("snapshot das premissas no cenário (I5)", () => {
+  const salvarBase = (nome = "Base") =>
+    salvarCenario(
+      { motores, banco },
+      { empresaId, nome, operacao: operacaoSemAliquotas(), conjuntoPremissasId: conjuntoId },
+    );
+
+  it("grava conjunto e todas as linhas do momento; validar depois não muda o snapshot", async () => {
+    const c = await salvarBase();
+    expect(c.premissasSnapshot).not.toBeNull();
+    const s = c.premissasSnapshot!;
+    expect(s.conjunto).toEqual({
+      id: conjuntoId,
+      nome: "usuário",
+      vigenciaInicio: "2027-01-01",
+      vigenciaFim: null,
+      validadoPor: null,
+      validadoEm: null,
+    });
+    expect(s.linhas.map((l) => [l.tributo, l.uf, l.municipioIbge, l.aliquota, l.origem])).toEqual([
+      ["CBS", null, null, "8.8", "usuario"],
+      ["IBS_UF", "RS", null, "0.05", "usuario"],
+      ["IBS_MUN", "RS", "4314902", "0.05", "usuario"],
+      ["IS_ADVALOREM", null, null, "10.0", "usuario"],
+    ]);
+    expect(Object.keys(s.linhas[0]!).sort()).toEqual(
+      ["aliquota", "consultadoEm", "fonteArtigo", "fonteNorma", "id", "municipioIbge", "origem", "tributo", "uf"].sort(),
+    );
+
+    validarConjunto(banco, conjuntoId, "Ana");
+    const reaberto = reabrirCenario(banco, c.id);
+    expect(reaberto.premissasSnapshot!.conjunto.validadoPor).toBeNull();
+    expect(reaberto.premissasSnapshot).toEqual(s);
+  });
+
+  it("linhas acrescentadas ao conjunto depois não entram no snapshot; a v2 tem o próprio snapshot", async () => {
+    const c = await salvarBase();
+    adicionarPremissa(banco, conjuntoId, { tributo: "IS_ADREM", aliquota: "1.5", origem: "usuario" });
+    expect(reabrirCenario(banco, c.id).premissasSnapshot!.linhas.map((l) => l.tributo)).not.toContain("IS_ADREM");
+    validarConjunto(banco, conjuntoId, "Bia");
+    const v2 = await recalcularCenario({ motores, banco }, c.id);
+    expect(v2.premissasSnapshot!.linhas.map((l) => l.tributo)).toContain("IS_ADREM");
+    expect(v2.premissasSnapshot!.conjunto.validadoPor).toBe("Bia");
+    expect(reabrirCenario(banco, c.id).premissasSnapshot!.conjunto.validadoPor).toBeNull();
+  });
+
+  it("cenário antigo (entrada_json sem snapshot) reabre com premissasSnapshot null", async () => {
+    const c = await salvarBase();
+    const e = JSON.parse(
+      (banco.prepare("SELECT entrada_json FROM cenario WHERE id = ?").get(c.id) as { entrada_json: string }).entrada_json,
+    );
+    delete e.premissasSnapshot;
+    banco.prepare("UPDATE cenario SET entrada_json = ? WHERE id = ?").run(JSON.stringify(e), c.id);
+    const r = reabrirCenario(banco, c.id);
+    expect(r.premissasSnapshot).toBeNull();
+    expect(r.resultado).toEqual(respostaOficial);
   });
 });

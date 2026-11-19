@@ -49,7 +49,7 @@ describe("Simulador: salvar como cenário", () => {
     const post = s.chamadas.find((c) => c.metodo === "POST" && c.url === "/api/empresas/7/cenarios")!;
     expect(post.corpo).toEqual({ nome: "Venda interestadual", operacao: simulacao.operacao, conjuntoPremissasId: simulacao.conjuntoPremissasId });
     expect(link).toHaveAttribute("href", `/empresas/7?cenario=${s.estado.cenarios[0]!.id}`);
-    // Salvar não executa nada no motor: só a simulação inicial chamou /api/simular.
+    // O cliente não chama /api/simular de novo: quem executa de novo no motor é o servidor, no POST /cenarios.
     expect(s.chamadas.filter((c) => c.url === "/api/simular")).toHaveLength(1);
 
     const antes = s.chamadas.length;
@@ -77,8 +77,9 @@ describe("Simulador: salvar como cenário", () => {
     fireEvent.change(screen.getByLabelText(/Município/), { target: { value: "3550308" } });
     fireEvent.change(screen.getByLabelText("UF"), { target: { value: "SP" } });
     const p = await painel();
-    expect(p).toHaveTextContent("Será salvo o resultado exibido acima");
     expect(p).toHaveTextContent("mesmo que você altere o formulário");
+    expect(p).toHaveTextContent("é executada de novo no motor com as premissas atuais");
+    expect(p).not.toHaveTextContent("Salvar não recalcula nada");
     await salvar("Cenário editado depois");
     await screen.findByRole("link", { name: "Abrir o cenário salvo" });
     const post = s.chamadas.find((c) => c.metodo === "POST" && c.url === "/api/empresas/7/cenarios")!.corpo as { operacao: { municipio: number; uf: string } };
@@ -140,5 +141,57 @@ describe("Simulador: salvar como cenário", () => {
     await screen.findByText(/Os motores de cálculo não estão em execução/);
     expect(screen.queryByRole("region", { name: "Salvar como cenário" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Resultado da simulação" })).toBeNull();
+  });
+});
+
+describe("Simulador: o que salvar grava (I1) e empresa do Simples (I3)", () => {
+  it("mostra os totais gravados pelo servidor; iguais aos exibidos, sem aviso de divergência", async () => {
+    const s = criarServidorFalso({ empresas: [empresaSintetica()] });
+    abrirApp(s);
+    await simularExemplo();
+    await salvar("Base");
+    await screen.findByRole("link", { name: "Abrir o cenário salvo" });
+    const p = await painel();
+    expect(within(p).getByLabelText("Totais salvos")).toHaveTextContent("Totais gravados: CBS 56,76 · IBS 0,64 · IS 15,00");
+    expect(within(p).queryByText(/O resultado salvo difere do exibido acima/)).toBeNull();
+  });
+
+  it("se o servidor gravar totais diferentes dos exibidos, avisa", async () => {
+    const s = criarServidorFalso({ empresas: [empresaSintetica()] });
+    // SUBSTITUTO DE TESTE: resultado gravado com a CBS total alterada (simula premissa/motor que mudou).
+    s.sobrescritas.set("POST /api/empresas/7/cenarios", (corpo) => {
+      const c = s.nova(7, (corpo as { nome: string }).nome, 1, (corpo as { operacao: unknown }).operacao, 1);
+      const resultado = structuredClone(c.resultado) as { total: { tribCalc: { IBSCBSTot: { gCBS: { vCBS: string } } } } };
+      resultado.total.tribCalc.IBSCBSTot.gCBS.vCBS = "60.00";
+      return resp(201, { ...c, resultado });
+    });
+    abrirApp(s);
+    await simularExemplo();
+    await salvar("Base");
+    const p = await painel();
+    expect(await within(p).findByText("O resultado salvo difere do exibido acima (premissas ou motor mudaram desde a simulação).")).toBeInTheDocument();
+    expect(within(p).getByLabelText("Totais salvos")).toHaveTextContent("CBS 60,00");
+  });
+
+  it("empresa optante pelo Simples: alerta de que o cálculo é do regime regular", async () => {
+    const s = criarServidorFalso({ empresas: [empresaSintetica({ regimeAtual: "simples" })] });
+    abrirApp(s);
+    await simularExemplo();
+    const p = await painel();
+    await waitFor(() => expect(within(p).getByRole("option", { name: /Comercial Exemplo/ })).toBeInTheDocument());
+    expect(within(p).queryByRole("alert")).toBeNull();
+    fireEvent.change(within(p).getByLabelText("Empresa"), { target: { value: "7" } });
+    expect(within(p).getByRole("alert")).toHaveTextContent(
+      "Esta empresa é optante pelo Simples Nacional. Nesta fase o cálculo usa o motor do regime regular e NÃO representa a apuração do Simples.",
+    );
+  });
+
+  it("o resultado do Simulador diz que o cálculo é do motor do regime regular", async () => {
+    const s = criarServidorFalso({ empresas: [empresaSintetica()] });
+    abrirApp(s);
+    await simularExemplo();
+    expect(
+      within(screen.getByRole("region", { name: "Resultado da simulação" })).getByText("Cálculo feito pelo motor oficial do regime regular."),
+    ).toBeInTheDocument();
   });
 });

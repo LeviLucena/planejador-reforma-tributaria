@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Fundamentacao, ObjetoResultado } from "../../../server/src/dominio/tipos";
+import type { Fundamentacao, ItemEntrada, ObjetoResultado } from "../../../server/src/dominio/tipos";
 import type { RespostaSimulacao } from "../../../server/src/simulacao/servico";
 import { formatarDecimalBR } from "../formatacao";
 import { memoriasDoItem, totaisDe, valoresDoItem } from "../simulador/resultado";
@@ -138,6 +138,23 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFu
   );
 }
 
+const presente = (v: unknown) => v !== undefined && v !== null && v !== "";
+
+/** Tributos que foram ao motor com alíquota em algum item (CBS, IBS_UF, IBS_MUN, IS_ADVALOREM, IS_ADREM). */
+function tributosEnviados(itens: ItemEntrada[]): string[] {
+  const t = new Set<string>();
+  for (const i of itens) {
+    const a = i.aliquotasNominais;
+    if (!a) continue;
+    if (presente(a.cbs)) t.add("CBS");
+    if (presente(a.ibsEstadual)) t.add("IBS_UF");
+    if (presente(a.ibsMunicipal)) t.add("IBS_MUN");
+    if (presente(a.impostoSeletivo?.adValorem)) t.add("IS_ADVALOREM");
+    if (presente(a.impostoSeletivo?.adRem)) t.add("IS_ADREM");
+  }
+  return ["CBS", "IBS_UF", "IBS_MUN", "IS_ADVALOREM", "IS_ADREM"].filter((x) => t.has(x));
+}
+
 interface Props {
   resposta: RespostaSimulacao;
   /** Fundamentações da data do fato gerador; null quando não foi possível carregá-las. */
@@ -152,6 +169,7 @@ export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamen
   const totais = totaisDe(resposta.resultado);
   const origens = Object.entries(resposta.origensPremissas ?? {});
   const itensEntrada = resposta.entradaEnviada?.itens ?? [];
+  const digitadosSemPremissa = tributosEnviados(itensEntrada).filter((t) => !(t in (resposta.origensPremissas ?? {})));
   return (
     <section aria-label="Resultado da simulação" className="resultado">
       <h2 tabIndex={-1}>Resultado</h2>
@@ -184,15 +202,22 @@ export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamen
         {origens.length === 0 ? (
           <p className="dica">Nenhuma premissa foi usada: todas as alíquotas foram informadas por você nos itens.</p>
         ) : (
-          <ul className="lista-etiquetas">
-            {origens.map(([tributo, origem]) => (
-              <li key={tributo}>
-                {tributo}: <span className={`etiqueta origem-${origem}`}>{ROTULO_ORIGEM[origem] ?? origem}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="dica">Vieram do conjunto de premissas (em pelo menos um item):</p>
+            <ul className="lista-etiquetas">
+              {origens.map(([tributo, origem]) => (
+                <li key={tributo}>
+                  {tributo}: <span className={`etiqueta origem-${origem}`}>{ROTULO_ORIGEM[origem] ?? origem}</span>
+                </li>
+              ))}
+            </ul>
+            {digitadosSemPremissa.length > 0 && (
+              <p className="dica">Informadas por você em todos os itens: {digitadosSemPremissa.join(", ")}.</p>
+            )}
+          </>
         )}
       </section>
+      <p className="dica motor-usado">Cálculo feito pelo motor oficial do regime regular.</p>
 
       <h3>Itens</h3>
       {resposta.resultado.objetos.map((o) => (

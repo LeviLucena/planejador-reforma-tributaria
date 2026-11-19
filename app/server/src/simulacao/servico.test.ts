@@ -122,19 +122,100 @@ describe("simularOperacao", () => {
     expect(r.origensPremissas).toEqual({ IBS_UF: "usuario", IBS_MUN: "usuario" });
   });
 
-  it("não preenche imposto seletivo quando o item não tem grupo de IS ou o conjunto não tem linhas de IS", async () => {
-    completo(false);
+  it("não preenche imposto seletivo no item sem grupo de IS (mesmo com IS no conjunto)", async () => {
+    completo(true);
     const f = motorFake();
-    const r = await simularOperacao(
-      { motores: f.motores, banco },
-      { operacao: operacao(), conjuntoPremissasId: c },
-    );
-    expect(r.entradaEnviada.itens[1]!.aliquotasNominais).toEqual({
+    const op = operacao();
+    op.itens = [op.itens[0]!];
+    const r = await simularOperacao({ motores: f.motores, banco }, { operacao: op, conjuntoPremissasId: c });
+    expect(r.entradaEnviada.itens[0]!.aliquotasNominais).toEqual({
       cbs: "8.8",
       ibsEstadual: "0.05",
       ibsMunicipal: "0.05",
     });
     expect(Object.keys(r.origensPremissas)).not.toContain("IS_ADVALOREM");
+  });
+
+  // I2 (antes: o item com grupo de IS sem alíquota ia ao motor sem IS, em silêncio).
+  it("item com grupo de IS sem alíquota própria e conjunto sem linha de IS → PREMISSA_AUSENTE citando IS; motor não chamado", async () => {
+    completo(false);
+    const f = motorFake();
+    const e = await simularOperacao(
+      { motores: f.motores, banco },
+      { operacao: operacao(), conjuntoPremissasId: c },
+    ).catch((x) => x);
+    expect(e).toBeInstanceOf(ErroDominio);
+    expect(e.codigo).toBe(PREMISSA_AUSENTE);
+    expect(e.status).toBe(422);
+    expect(e.message).toMatch(/IS_ADVALOREM/);
+    expect(f.recebidas).toHaveLength(0);
+  });
+
+  function todosComCbsIbs(): OperacaoEntrada {
+    const op = operacao();
+    for (const item of op.itens) {
+      item.aliquotasNominais = { cbs: "1.0", ibsEstadual: "2.0", ibsMunicipal: "3.0" };
+    }
+    return op;
+  }
+
+  it("todos os itens com CBS/IBS próprios e item de IS sem alíquota: usa só o IS do conjunto (sem exigir CBS/IBS dele)", async () => {
+    // conjunto só com IS: antes, qualquer falta exigia CBS/IBS do conjunto (ou ignorava o IS)
+    adicionarPremissa(banco, c, { tributo: "IS_ADVALOREM", aliquota: "10.0", origem: "usuario" });
+    const f = motorFake();
+    const r = await simularOperacao({ motores: f.motores, banco }, { operacao: todosComCbsIbs(), conjuntoPremissasId: c });
+    expect(f.recebidas).toHaveLength(1);
+    expect(r.entradaEnviada.itens[1]!.aliquotasNominais).toEqual({
+      cbs: "1.0",
+      ibsEstadual: "2.0",
+      ibsMunicipal: "3.0",
+      impostoSeletivo: { adValorem: "10.0" },
+    });
+    expect(r.entradaEnviada.itens[0]!.aliquotasNominais).toEqual({ cbs: "1.0", ibsEstadual: "2.0", ibsMunicipal: "3.0" });
+    expect(r.origensPremissas).toEqual({ IS_ADVALOREM: "usuario" });
+  });
+
+  it("todos com CBS/IBS próprios, item de IS sem alíquota e conjunto sem IS → PREMISSA_AUSENTE; motor não chamado", async () => {
+    completo(false);
+    const f = motorFake();
+    const e = await simularOperacao(
+      { motores: f.motores, banco },
+      { operacao: todosComCbsIbs(), conjuntoPremissasId: c },
+    ).catch((x) => x);
+    expect(e.codigo).toBe(PREMISSA_AUSENTE);
+    expect(e.message).toMatch(/IS/);
+    expect(f.recebidas).toHaveLength(0);
+  });
+
+  it("itens trazem IBS e IS, falta só a CBS: só a CBS é exigida e resolvida", async () => {
+    adicionarPremissa(banco, c, { tributo: "CBS", aliquota: "8.8", origem: "usuario" });
+    const f = motorFake();
+    const op = operacao();
+    for (const item of op.itens) {
+      item.aliquotasNominais = { ibsEstadual: "2.0", ibsMunicipal: "3.0" } as never;
+    }
+    op.itens[1]!.aliquotasNominais!.impostoSeletivo = { adValorem: "5.0" };
+    const r = await simularOperacao({ motores: f.motores, banco }, { operacao: op, conjuntoPremissasId: c });
+    expect(r.entradaEnviada.itens[1]!.aliquotasNominais).toEqual({
+      cbs: "8.8",
+      ibsEstadual: "2.0",
+      ibsMunicipal: "3.0",
+      impostoSeletivo: { adValorem: "5.0" },
+    });
+    expect(r.origensPremissas).toEqual({ CBS: "usuario" });
+  });
+
+  it("falta só a CBS e o conjunto não tem CBS → PREMISSA_AUSENTE citando CBS (não cita IBS)", async () => {
+    adicionarPremissa(banco, c, { tributo: "IBS_UF", aliquota: "0.05", uf: "RS", origem: "usuario" });
+    const f = motorFake();
+    const op = operacao();
+    op.itens = [{ ...op.itens[0]!, aliquotasNominais: { ibsEstadual: "2.0", ibsMunicipal: "3.0" } as never }];
+    const e = await simularOperacao({ motores: f.motores, banco }, { operacao: op, conjuntoPremissasId: c }).catch(
+      (x) => x,
+    );
+    expect(e.codigo).toBe(PREMISSA_AUSENTE);
+    expect(e.message).toMatch(/CBS/);
+    expect(f.recebidas).toHaveLength(0);
   });
 
   it("(b) conjunto sem IBS_MUN → PREMISSA_AUSENTE e o motor não é chamado", async () => {

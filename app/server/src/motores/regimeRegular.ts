@@ -6,12 +6,14 @@ import type {
   ResultadoOperacao,
   SituacaoTributaria,
 } from "../dominio/tipos.js";
+import { ErroDominio, MOTOR_INDISPONIVEL } from "../dominio/erros.js";
 import { lerJson, requisitar } from "./http.js";
 import { listarAtividades } from "./simplesNacional.js";
 
 export interface VersoesMotores {
   regimeRegular: string;
-  simples: { app: string; db: string };
+  /** null quando o motor do Simples não respondeu (ele não participa do cálculo na Fase 1). */
+  simples: { app: string; db: string } | null;
 }
 
 export interface MotoresPort {
@@ -67,12 +69,17 @@ export function criarMotores(cfg: ConfigMotores): MotoresPort {
       const reg = lerJson<Versao>(
         await requisitar(`${cfg.urlRegimeRegular}/dados-abertos/versao`, undefined, { timeoutMs }),
       );
-      const simples = lerJson<Versao>(
-        await requisitar(`${cfg.urlSimples}/versao`, undefined, { timeoutMs }),
-      );
+      // O motor do Simples não calcula nada na Fase 1: fora do ar, a versão dele fica null
+      // (quem grava registra "indisponivel"); o regime regular fora do ar continua sendo erro.
+      let simples: Versao | null = null;
+      try {
+        simples = lerJson<Versao>(await requisitar(`${cfg.urlSimples}/versao`, undefined, { timeoutMs }));
+      } catch (e) {
+        if (!(e instanceof ErroDominio && e.codigo === MOTOR_INDISPONIVEL)) throw e;
+      }
       return {
         regimeRegular: `${reg.versaoApp}+${reg.versaoDb}`,
-        simples: { app: simples.versaoApp, db: simples.versaoDb },
+        simples: simples ? { app: simples.versaoApp, db: simples.versaoDb } : null,
       };
     },
 

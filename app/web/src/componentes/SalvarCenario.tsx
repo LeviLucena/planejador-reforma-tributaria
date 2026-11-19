@@ -1,23 +1,34 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import type { ResultadoOperacao } from "../../../server/src/dominio/tipos";
 import type { Empresa } from "../../../server/src/empresas/repositorio";
 import type { RequisicaoSimulacao } from "../../../server/src/simulacao/servico";
 import { cliente } from "../api/cliente";
-import { formatarCnpj } from "../formatacao";
+import { formatarCnpj, formatarDecimalBR } from "../formatacao";
+import { totaisDe, type Totais } from "../simulador/resultado";
 import { Campo } from "./Campo";
 
 interface Props {
   /** A última simulação bem-sucedida: é ela (e não o formulário atual) que será salva. */
   requisicao: RequisicaoSimulacao;
+  /** O resultado exibido pelo Simulador, para comparar com o que o servidor gravar. */
+  exibido?: ResultadoOperacao;
 }
+
+export const AVISO_SIMPLES =
+  "Esta empresa é optante pelo Simples Nacional. Nesta fase o cálculo usa o motor do regime regular e NÃO representa a apuração do Simples.";
+
+const fmt = (v: string | undefined) => (v === undefined ? "—" : formatarDecimalBR(v));
+const mesmosTotais = (a: Totais, b: Totais) => a.cbs === b.cbs && a.ibs === b.ibs && a.is === b.is;
 
 const mensagemDe = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
 
 /**
- * Painel "Salvar como cenário". Salva SEMPRE a operação e o conjunto que foram simulados (o resultado exibido),
- * mesmo que o formulário tenha sido editado depois; o painel avisa isso. Não executa nada no motor.
+ * Painel "Salvar como cenário". Envia a operação e o conjunto que foram simulados (não o formulário atual).
+ * O servidor EXECUTA DE NOVO a operação no motor com as premissas atuais e grava o resultado dessa nova
+ * execução; o painel mostra os totais gravados e avisa se diferirem dos exibidos.
  */
-export function SalvarCenario({ requisicao }: Props) {
+export function SalvarCenario({ requisicao, exibido }: Props) {
   const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
   const [erroEmpresas, setErroEmpresas] = useState<string | null>(null);
   const [empresaId, setEmpresaId] = useState("");
@@ -25,7 +36,13 @@ export function SalvarCenario({ requisicao }: Props) {
   const [erros, setErros] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState(false);
   const [erroSalvar, setErroSalvar] = useState<string | null>(null);
-  const [salvo, setSalvo] = useState<{ empresaId: number; cenarioId: number; nome: string; versao: number } | null>(null);
+  const [salvo, setSalvo] = useState<{
+    empresaId: number;
+    cenarioId: number;
+    nome: string;
+    versao: number;
+    totais: Totais;
+  } | null>(null);
 
   useEffect(() => {
     let ativo = true;
@@ -41,6 +58,8 @@ export function SalvarCenario({ requisicao }: Props) {
       ativo = false;
     };
   }, []);
+
+  const empresaEscolhida = empresas?.find((e) => String(e.id) === empresaId);
 
   async function salvar(ev: React.FormEvent) {
     ev.preventDefault();
@@ -58,7 +77,13 @@ export function SalvarCenario({ requisicao }: Props) {
         operacao: requisicao.operacao,
         conjuntoPremissasId: requisicao.conjuntoPremissasId,
       });
-      setSalvo({ empresaId: Number(empresaId), cenarioId: c.id, nome: c.nome, versao: c.versaoNumero });
+      setSalvo({
+        empresaId: Number(empresaId),
+        cenarioId: c.id,
+        nome: c.nome,
+        versao: c.versaoNumero,
+        totais: totaisDe(c.resultado),
+      });
     } catch (erro) {
       setErroSalvar(mensagemDe(erro));
     } finally {
@@ -70,8 +95,8 @@ export function SalvarCenario({ requisicao }: Props) {
     <section aria-label="Salvar como cenário" className="bloco painel-salvar">
       <h2>Salvar como cenário</h2>
       <p className="dica">
-        Será salvo o resultado exibido acima (a operação e o conjunto de premissas que foram simulados), mesmo que você altere o
-        formulário depois. Salvar não recalcula nada.
+        Ao salvar, a operação simulada acima (e o conjunto de premissas escolhido nela), mesmo que você altere o formulário
+        depois, é executada de novo no motor com as premissas atuais, e é o resultado dessa nova execução que fica gravado.
       </p>
       {empresas === null && <p className="dica">Carregando empresas…</p>}
       {erroEmpresas && (
@@ -99,6 +124,11 @@ export function SalvarCenario({ requisicao }: Props) {
                 </select>
               )}
             </Campo>
+            {empresaEscolhida?.regimeAtual === "simples" && (
+              <p role="alert" className="mensagem-erro aviso-simples">
+                {AVISO_SIMPLES}
+              </p>
+            )}
             <Campo id="cen-nome" rotulo="Nome do cenário" erro={erros.nome}>
               {(a) => <input {...a} value={nome} onChange={(ev) => setNome(ev.target.value)} />}
             </Campo>
@@ -116,10 +146,20 @@ export function SalvarCenario({ requisicao }: Props) {
         </div>
       )}
       {salvo && (
-        <p role="status">
-          Cenário “{salvo.nome}” salvo (versão {salvo.versao}).{" "}
-          <Link to={`/empresas/${salvo.empresaId}?cenario=${salvo.cenarioId}`}>Abrir o cenário salvo</Link>
-        </p>
+        <div role="status">
+          <p>
+            Cenário “{salvo.nome}” salvo (versão {salvo.versao}).{" "}
+            <Link to={`/empresas/${salvo.empresaId}?cenario=${salvo.cenarioId}`}>Abrir o cenário salvo</Link>
+          </p>
+          <p aria-label="Totais salvos">
+            Totais gravados: CBS {fmt(salvo.totais.cbs)} · IBS {fmt(salvo.totais.ibs)} · IS {fmt(salvo.totais.is)}
+          </p>
+          {exibido && !mesmosTotais(salvo.totais, totaisDe(exibido)) && (
+            <p className="mensagem-erro">
+              O resultado salvo difere do exibido acima (premissas ou motor mudaram desde a simulação).
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

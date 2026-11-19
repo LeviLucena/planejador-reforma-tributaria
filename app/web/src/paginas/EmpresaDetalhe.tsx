@@ -6,6 +6,8 @@ import type { Empresa } from "../../../server/src/empresas/repositorio";
 import type { ConjuntoResumo } from "../../../server/src/premissas/repositorio";
 import { cliente, ErroApi } from "../api/cliente";
 import { ResultadoOperacao } from "../componentes/ResultadoOperacao";
+import { ResumoEntradas } from "../componentes/ResumoEntradas";
+import { AVISO_SIMPLES } from "../componentes/SalvarCenario";
 import { dataBrasilia, dataHoraBrasilia, formatarCnpj } from "../formatacao";
 import { ROTULO_REGIME } from "./Empresas";
 
@@ -14,14 +16,24 @@ const mensagemDe = (e: unknown) => (e instanceof Error ? e.message : "Erro inesp
 const ordenar = (l: Cenario[]) =>
   [...l].sort((a, b) => (a.nome === b.nome ? a.versaoNumero - b.versaoNumero : a.nome.localeCompare(b.nome, "pt-BR")));
 
-function descreverConjunto(id: number, conjuntos: ConjuntoResumo[] | null): string {
-  if (conjuntos === null) return `conjunto #${id} (nomes de conjuntos indisponíveis)`;
-  const c = conjuntos.find((x) => x.id === id);
-  if (!c) return `conjunto #${id} não encontrado`;
-  const validacao = c.validadoPor
-    ? `validado por ${c.validadoPor} em ${c.validadoEm ? dataBrasilia(c.validadoEm) : "data não registrada"}`
+const descreverValidacao = (validadoPor: string | null, validadoEm: string | null) =>
+  validadoPor
+    ? `validado por ${validadoPor} em ${validadoEm ? dataBrasilia(validadoEm) : "data não registrada"}`
     : "pendente de validação";
-  return `${c.nome} (${validacao})`;
+
+/**
+ * Premissas do selo: vêm do snapshot gravado no cenário (estado do conjunto no momento do cálculo),
+ * nunca do estado atual do conjunto. A lista atual só serve para uma dica quando ele mudou depois.
+ */
+function descreverPremissas(c: Cenario, conjuntos: ConjuntoResumo[] | null): string {
+  const s = c.premissasSnapshot;
+  if (!s) return `conjunto #${c.conjuntoPremissasId}: snapshot das premissas não disponível (cenário antigo)`;
+  const texto = `${s.conjunto.nome} (${descreverValidacao(s.conjunto.validadoPor, s.conjunto.validadoEm)})`;
+  const atual = conjuntos?.find((x) => x.id === s.conjunto.id);
+  if (atual && atual.validadoPor !== null && s.conjunto.validadoPor === null) {
+    return `${texto} — o conjunto foi validado depois deste cálculo`;
+  }
+  return texto;
 }
 
 function MensagemRecalculo({ erro }: { erro: ErroApi | Error }) {
@@ -216,6 +228,11 @@ export function PaginaEmpresaDetalhe() {
           </dd>
         </div>
       </dl>
+      {empresa.regimeAtual === "simples" && (
+        <p role="alert" className="mensagem-erro aviso-simples">
+          {AVISO_SIMPLES}
+        </p>
+      )}
 
       <h2>Cenários salvos</h2>
       {grupos.size === 0 && (
@@ -262,7 +279,7 @@ export function PaginaEmpresaDetalhe() {
       {aberto && (
         <div ref={resultadoRef}>
           <p aria-label="Selo do resultado congelado" className="selo">
-            {`Resultado congelado em ${dataHoraBrasilia(aberto.criadoEm)} · versão ${aberto.versaoNumero} · motor: ${aberto.versaoMotor} · premissas: ${descreverConjunto(aberto.conjuntoPremissasId, conjuntos)}`}
+            {`Resultado congelado em ${dataHoraBrasilia(aberto.criadoEm)} · versão ${aberto.versaoNumero} · motor: ${aberto.versaoMotor} · premissas: ${descreverPremissas(aberto, conjuntos)}`}
           </p>
           <div className="acoes">
             <button type="button" disabled={recalculando} onClick={() => void recalcular(aberto)}>
@@ -272,6 +289,7 @@ export function PaginaEmpresaDetalhe() {
               Recalcula com as premissas atuais do conjunto e o motor em execução; as versões anteriores não são alteradas.
             </span>
           </div>
+          <ResumoEntradas entrada={aberto.entrada} entradaEnviada={aberto.entradaEnviada} snapshot={aberto.premissasSnapshot ?? null} />
           <ResultadoOperacao
             resposta={{ resultado: aberto.resultado, entradaEnviada: aberto.entradaEnviada, origensPremissas: aberto.origensPremissas }}
             fundamentacoes={fund}

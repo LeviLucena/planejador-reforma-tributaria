@@ -1,6 +1,7 @@
 // Servidor falso em memória para os testes de empresas e cenários.
 // REAIS: `resposta-oficial.json` (resposta do motor da Receita) e `operacao-oficial.json` (exemplo oficial).
-// SINTÉTICOS (apenas substitutos de teste): ids, nomes, datas de criação e o texto de `versaoMotor`.
+// SINTÉTICOS (apenas substitutos de teste): ids, nomes, datas de criação, o texto de `versaoMotor` e o
+// premissasSnapshot (copiado do conjunto sintético no momento da criação, sem linhas).
 import type { Cenario } from "../../../server/src/cenarios/repositorio";
 import type { Empresa } from "../../../server/src/empresas/repositorio";
 import operacaoOficial from "../exemplos/operacao-oficial.json";
@@ -40,6 +41,20 @@ export function criarServidorFalso(inicial: { empresas?: Empresa[]; cenarios?: C
 
   const nova = (empresaId: number, nome: string, versao: number, operacao: unknown, conjunto: number): Cenario => {
     const dia = 18 + estado.relogio++;
+    const c = (estado.conjuntos as Record<string, unknown>[]).find((x) => x.id === conjunto);
+    const premissasSnapshot = c
+      ? {
+          conjunto: {
+            id: c.id as number,
+            nome: c.nome as string,
+            vigenciaInicio: c.vigenciaInicio as string,
+            vigenciaFim: (c.vigenciaFim ?? null) as string | null,
+            validadoPor: (c.validadoPor ?? null) as string | null,
+            validadoEm: (c.validadoEm ?? null) as string | null,
+          },
+          linhas: [],
+        }
+      : null;
     return {
       id: estado.proximoId++,
       empresaId,
@@ -48,6 +63,7 @@ export function criarServidorFalso(inicial: { empresas?: Empresa[]; cenarios?: C
       entrada: operacao as never,
       entradaEnviada: operacaoOficial as never,
       origensPremissas: { CBS: "oficial", IBS_UF: "usuario" },
+      premissasSnapshot,
       resultado: respostaOficial as never,
       versaoMotor: VERSAO_MOTOR,
       conjuntoPremissasId: conjunto,

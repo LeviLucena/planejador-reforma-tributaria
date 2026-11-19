@@ -146,9 +146,16 @@ describe("corpo enviado ao motor", () => {
     expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");
   });
 
-  it("versoes() com um motor fora do ar falha por inteiro", async () => {
+  // I1: o motor do Simples não calcula nada na Fase 1; fora do ar, a versão dele vem null.
+  it("versoes() com o Simples fora do ar devolve simples null (sem falhar)", async () => {
     const c = await capturar(200, '{"versaoApp":"1.6.1","versaoDb":"V0059"}');
     const m = criarMotores({ urlRegimeRegular: c.url, urlSimples: "http://127.0.0.1:1/api" });
+    expect(await m.versoes()).toEqual({ regimeRegular: "1.6.1+V0059", simples: null });
+  });
+
+  it("versoes() com o regime regular fora do ar falha com MOTOR_INDISPONIVEL", async () => {
+    const c = await capturar(200, '{"versaoApp":"0.0.6","versaoDb":"V0059"}');
+    const m = criarMotores({ urlRegimeRegular: "http://127.0.0.1:1/api/calculadora", urlSimples: c.url });
     const erro = await m.versoes().catch((e) => e);
     expect(erro).toBeInstanceOf(ErroDominio);
     expect(erro.codigo).toBe("MOTOR_INDISPONIVEL");

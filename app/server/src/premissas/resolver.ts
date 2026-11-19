@@ -8,13 +8,29 @@ interface Linha {
   origem: OrigemPremissa;
 }
 
+/** IS = IS_ADVALOREM ou IS_ADREM (basta uma das duas linhas). */
+export type TributoExigivel = "CBS" | "IBS_UF" | "IBS_MUN" | "IS";
+
+export interface OpcoesResolucao {
+  /**
+   * Tributos que precisam existir no conjunto (padrão: CBS, IBS_UF e IBS_MUN).
+   * Um tributo que os itens já trazem não deve ser exigido: quem chama passa só o que falta.
+   */
+  exigir?: TributoExigivel[];
+}
+
+/**
+ * Resolve as alíquotas do conjunto para UF/município/data. Devolve tudo o que o conjunto
+ * tem; recusa (PREMISSA_AUSENTE) só os tributos de opcoes.exigir que faltarem.
+ */
 export function resolverAliquotas(
   banco: Banco,
   conjuntoId: number,
   uf: string,
   municipioIbge: number,
   data: string,
-): { aliquotas: AliquotasNominais; origens: Record<string, OrigemPremissa> } {
+  opcoes: OpcoesResolucao = {},
+): { aliquotas: Partial<AliquotasNominais>; origens: Record<string, OrigemPremissa> } {
   const dia = validarDataIso(data, "data");
   const conjunto = banco
     .prepare("SELECT vigencia_inicio, vigencia_fim FROM conjunto_premissas WHERE id = ?")
@@ -54,35 +70,41 @@ export function resolverAliquotas(
     buscar("IBS_MUN", ufMaiuscula, mun) ??
     buscar("IBS_MUN", ufMaiuscula, null) ??
     buscar("IBS_MUN", null, null);
+  const adv = buscar("IS_ADVALOREM", null, null);
+  const adr = buscar("IS_ADREM", null, null);
 
-  const exigidas: [string, Linha | undefined][] = [
-    ["CBS", cbs],
-    ["IBS_UF", ibsUf],
-    ["IBS_MUN", ibsMun],
+  const exigir = new Set<TributoExigivel>(opcoes.exigir ?? ["CBS", "IBS_UF", "IBS_MUN"]);
+  const presentes: [TributoExigivel, boolean][] = [
+    ["CBS", cbs !== undefined],
+    ["IBS_UF", ibsUf !== undefined],
+    ["IBS_MUN", ibsMun !== undefined],
+    ["IS", adv !== undefined || adr !== undefined],
   ];
-  for (const [codigo, linha] of exigidas) {
-    if (!linha) {
+  for (const [codigo, existe] of presentes) {
+    if (exigir.has(codigo) && !existe) {
+      const nome = codigo === "IS" ? "IS (IS_ADVALOREM ou IS_ADREM)" : codigo;
       throw new ErroDominio(
         PREMISSA_AUSENTE,
-        `Premissa ${codigo} ausente para UF ${ufMaiuscula}, município ${mun}, conjunto ${conjuntoId}.`,
+        `Premissa ${nome} ausente para UF ${ufMaiuscula}, município ${mun}, conjunto ${conjuntoId}.`,
         422,
       );
     }
   }
 
-  const origens: Record<string, OrigemPremissa> = {
-    CBS: cbs!.origem,
-    IBS_UF: ibsUf!.origem,
-    IBS_MUN: ibsMun!.origem,
-  };
-  const aliquotas: AliquotasNominais = {
-    cbs: cbs!.aliquota,
-    ibsEstadual: ibsUf!.aliquota,
-    ibsMunicipal: ibsMun!.aliquota,
-  };
-
-  const adv = buscar("IS_ADVALOREM", null, null);
-  const adr = buscar("IS_ADREM", null, null);
+  const origens: Record<string, OrigemPremissa> = {};
+  const aliquotas: Partial<AliquotasNominais> = {};
+  if (cbs) {
+    aliquotas.cbs = cbs.aliquota;
+    origens.CBS = cbs.origem;
+  }
+  if (ibsUf) {
+    aliquotas.ibsEstadual = ibsUf.aliquota;
+    origens.IBS_UF = ibsUf.origem;
+  }
+  if (ibsMun) {
+    aliquotas.ibsMunicipal = ibsMun.aliquota;
+    origens.IBS_MUN = ibsMun.origem;
+  }
   if (adv || adr) {
     aliquotas.impostoSeletivo = {};
     if (adv) {

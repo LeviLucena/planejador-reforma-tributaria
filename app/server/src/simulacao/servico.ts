@@ -6,7 +6,7 @@ import type {
   ResultadoOperacao,
 } from "../dominio/tipos.js";
 import type { MotoresPort } from "../motores/regimeRegular.js";
-import { resolverAliquotas } from "../premissas/resolver.js";
+import { resolverAliquotas, type TributoExigivel } from "../premissas/resolver.js";
 
 export interface RequisicaoSimulacao {
   operacao: OperacaoEntrada;
@@ -21,10 +21,24 @@ export interface RespostaSimulacao {
 
 const ausente = (v: unknown) => v === undefined || v === null;
 const CAMPOS = ["cbs", "ibsEstadual", "ibsMunicipal"] as const;
+const TRIBUTO_DO_CAMPO = { cbs: "CBS", ibsEstadual: "IBS_UF", ibsMunicipal: "IBS_MUN" } as const;
 
-function faltaAlgumCampo(item: ItemEntrada): boolean {
-  const a = item.aliquotasNominais;
-  return !a || CAMPOS.some((c) => ausente(a[c]));
+/** Item com grupo de Imposto Seletivo e sem alíquota de IS própria (ad valorem nem ad rem). */
+function precisaDeIs(item: ItemEntrada): boolean {
+  if (!item.impostoSeletivo) return false;
+  const proprio = item.aliquotasNominais?.impostoSeletivo;
+  return !proprio || (ausente(proprio.adValorem) && ausente(proprio.adRem));
+}
+
+/** Tributos que algum item não traz: só esses são exigidos do conjunto de premissas. */
+function tributosFaltantes(itens: ItemEntrada[]): TributoExigivel[] {
+  const faltam = new Set<TributoExigivel>();
+  for (const item of itens) {
+    const a: Partial<AliquotasNominais> = item.aliquotasNominais ?? {};
+    for (const campo of CAMPOS) if (ausente(a[campo])) faltam.add(TRIBUTO_DO_CAMPO[campo]);
+    if (precisaDeIs(item)) faltam.add("IS");
+  }
+  return [...faltam];
 }
 
 export async function simularOperacao(
@@ -35,32 +49,32 @@ export async function simularOperacao(
   const origens: Record<string, string> = {};
   let itens: ItemEntrada[] = operacao.itens;
 
-  if (operacao.itens.some(faltaAlgumCampo)) {
+  const exigir = tributosFaltantes(operacao.itens);
+  if (exigir.length > 0) {
+    // Recusa (PREMISSA_AUSENTE) antes de chamar o motor se o conjunto não tem o que falta.
     const { aliquotas, origens: origensResolvidas } = resolverAliquotas(
       deps.banco,
       conjuntoPremissasId,
       operacao.uf,
       operacao.municipio,
       operacao.dhFatoGerador,
+      { exigir },
     );
     const usarOrigem = (chave: string) => {
       origens[chave] = origensResolvidas[chave]!;
     };
-    const tributoDe = { cbs: "CBS", ibsEstadual: "IBS_UF", ibsMunicipal: "IBS_MUN" } as const;
 
     itens = operacao.itens.map((item) => {
       const proprias: Partial<AliquotasNominais> = item.aliquotasNominais ?? {};
       const nominais = { ...proprias } as AliquotasNominais;
       for (const campo of CAMPOS) {
         if (ausente(proprias[campo])) {
-          nominais[campo] = aliquotas[campo];
-          usarOrigem(tributoDe[campo]);
+          nominais[campo] = aliquotas[campo]!;
+          usarOrigem(TRIBUTO_DO_CAMPO[campo]);
         }
       }
       const isResolvido = aliquotas.impostoSeletivo;
-      const isProprio = proprias.impostoSeletivo;
-      const semIsProprio = !isProprio || (ausente(isProprio.adValorem) && ausente(isProprio.adRem));
-      if (item.impostoSeletivo && isResolvido && semIsProprio) {
+      if (precisaDeIs(item) && isResolvido) {
         nominais.impostoSeletivo = { ...isResolvido };
         if (!ausente(isResolvido.adValorem)) usarOrigem("IS_ADVALOREM");
         if (!ausente(isResolvido.adRem)) usarOrigem("IS_ADREM");

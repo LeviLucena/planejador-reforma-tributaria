@@ -52,7 +52,8 @@ describe("motor regular real", () => {
   it("lê as versões dos dois motores", async () => {
     const v = await motores.versoes();
     expect(v.regimeRegular).toMatch(/^\d/);
-    expect(v.simples.app).toBeTruthy();
-    expect(v.simples.db).toMatch(/^V\d+/);
+    expect(v.simples).not.toBeNull();
+    expect(v.simples!.app).toBeTruthy();
+    expect(v.simples!.db).toMatch(/^V\d+/);
   });
 });

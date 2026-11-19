@@ -103,3 +103,10 @@ button.perigo { border-color: #c0392b; background: #c0392b; color: #fff; }
 .lista-versoes button[aria-pressed="true"] { font-weight: 700; outline: 2px solid currentColor; }
 .selo { padding: 0.5rem 0.8rem; border: 2px solid var(--cor-borda); border-radius: 8px; background: var(--cor-superficie); margin: var(--espaco) 0 0.5rem; font-weight: 600; }
 .painel-salvar { margin-top: var(--espaco); }
+/* Resumo das entradas do cenário reaberto: "da premissa" x "informada por você" (rótulo sempre em texto). */
+.resumo-entradas .item-entrada { border-top: 1px solid var(--cor-borda); padding: 0.4rem 0; }
+.resumo-entradas .item-entrada p { margin: 0.25rem 0; }
+.lista-aliquotas { list-style: none; padding: 0; margin: 0.25rem 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
+.etiqueta.origem-premissa { border: 2px dashed #0d3c75; }
+.etiqueta.origem-digitada { border: 2px solid var(--cor-borda); }
+.aviso-simples { font-weight: 600; }

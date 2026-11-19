@@ -65,10 +65,100 @@ describe("EmpresaDetalhe: reabrir cenário congelado", () => {
     expect(selo()).toHaveTextContent("premissas: Premissas 2027 (rascunho) (pendente de validação)");
   });
 
-  it("conjunto inexistente: diz 'conjunto #99 não encontrado'", async () => {
-    preparar("/empresas/7?cenario=100", 99);
+  // I5: antes o selo lia o estado ATUAL do conjunto (ex.: "conjunto #99 não encontrado").
+  it("cenário antigo, sem snapshot das premissas: avisa em vez de mostrar o estado atual do conjunto", async () => {
+    preparar("/empresas/7?cenario=100", 2, (s) => {
+      (s.estado.cenarios[0] as { premissasSnapshot: unknown }).premissasSnapshot = null;
+    });
     await screen.findByLabelText("Selo do resultado congelado");
-    expect(selo()).toHaveTextContent("premissas: conjunto #99 não encontrado");
+    expect(selo()).toHaveTextContent("premissas: conjunto #2: snapshot das premissas não disponível (cenário antigo)");
+    expect(selo()).not.toHaveTextContent("validado por Ana");
+  });
+
+  it("salvo com o conjunto pendente e validado depois: o selo continua 'pendente' (snapshot) e dá a dica", async () => {
+    preparar("/empresas/7?cenario=100", 1, (s) => {
+      // depois de salvar, o conjunto 1 é validado (estado atual sintético)
+      s.estado.conjuntos = (s.estado.conjuntos as Record<string, unknown>[]).map((c) =>
+        c.id === 1 ? { ...c, validadoPor: "Bia", validadoEm: "2026-11-20T12:00:00.000Z" } : c,
+      );
+    });
+    await screen.findByLabelText("Selo do resultado congelado");
+    await waitFor(() =>
+      expect(selo()).toHaveTextContent(
+        "premissas: Premissas 2027 (rascunho) (pendente de validação) — o conjunto foi validado depois deste cálculo",
+      ),
+    );
+    expect(selo()).not.toHaveTextContent("validado por Bia");
+  });
+
+  it("mostra que o cálculo foi feito pelo motor do regime regular", async () => {
+    preparar();
+    await screen.findByLabelText("Selo do resultado congelado");
+    expect(screen.getByText("Cálculo feito pelo motor oficial do regime regular.")).toBeInTheDocument();
+  });
+});
+
+describe("EmpresaDetalhe: empresa do Simples Nacional (I3)", () => {
+  const aviso =
+    "Esta empresa é optante pelo Simples Nacional. Nesta fase o cálculo usa o motor do regime regular e NÃO representa a apuração do Simples.";
+
+  function prepararSimples(regimeAtual: "simples" | "presumido") {
+    const s = criarServidorFalso({ empresas: [empresaSintetica({ regimeAtual })] });
+    s.instalar();
+    render(
+      <MemoryRouter initialEntries={["/empresas/7"]}>
+        <Routes>
+          <Route path="/empresas/:id" element={<PaginaEmpresaDetalhe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it("optante pelo Simples: alerta visível", async () => {
+    prepararSimples("simples");
+    expect(await screen.findByRole("alert")).toHaveTextContent(aviso);
+  });
+
+  it("outro regime: sem o alerta", async () => {
+    prepararSimples("presumido");
+    await screen.findByRole("heading", { level: 1, name: "Comercial Exemplo Ltda" });
+    expect(screen.queryByText(aviso)).toBeNull();
+  });
+});
+
+describe("EmpresaDetalhe: entradas do cenário reaberto (I6)", () => {
+  it("exemplo oficial (itens com alíquotas próprias): resumo da operação e tudo 'informada por você'", async () => {
+    preparar();
+    const resumo = await screen.findByRole("region", { name: "Entradas do cenário" });
+    const r = within(resumo);
+    expect(r.getByText("RS")).toBeInTheDocument();
+    expect(r.getByText("4314902")).toBeInTheDocument();
+    expect(r.getByText("10/03/2027 10:00:00 (-03:00)")).toBeInTheDocument();
+    expect(r.getByText("Premissas validadas")).toBeInTheDocument();
+    const item1 = within(r.getByRole("article", { name: "Entrada do item 1" }));
+    expect(item1.getByText(/NCM 10063021/)).toHaveTextContent("CST 200 · cClassTrib 200003 · base 100 · quantidade 20 KG");
+    expect(item1.getByText(/^CBS: 8,8%/)).toBeInTheDocument();
+    const item2 = within(r.getByRole("article", { name: "Entrada do item 2" }));
+    expect(item2.getByText(/^Imposto Seletivo:/)).toHaveTextContent("CST 000 · cClassTrib 000001 · base 150 · quantidade 12 LT · imposto informado 15");
+    expect(item2.getByText(/^IS ad valorem: 10%/)).toBeInTheDocument();
+    expect(r.queryAllByText("da premissa")).toHaveLength(0);
+    // 4 itens x 3 alíquotas + IS do item 2
+    expect(r.getAllByText("informada por você")).toHaveLength(13);
+  });
+
+  it("substituto de teste: entradaEnviada com alíquotas vindas das premissas aparece 'da premissa'", async () => {
+    preparar("/empresas/7?cenario=100", 2, (s) => {
+      const c = s.estado.cenarios[0]!;
+      // SINTÉTICO: a entrada digitada não traz as alíquotas do item 1 (exceto a CBS); o enviado traz (como se viessem das premissas).
+      const entrada = structuredClone(operacaoOficial) as typeof operacaoOficial;
+      (entrada.itens[0] as { aliquotasNominais?: unknown }).aliquotasNominais = { cbs: "8.8" };
+      (c as { entrada: unknown }).entrada = entrada;
+    });
+    const resumo = await screen.findByRole("region", { name: "Entradas do cenário" });
+    const item1 = within(within(resumo).getByRole("article", { name: "Entrada do item 1" }));
+    expect(item1.getByText(/^CBS:/)).toHaveTextContent("informada por você");
+    expect(item1.getByText(/^IBS estadual:/)).toHaveTextContent("0,05% da premissa");
+    expect(item1.getByText(/^IBS municipal:/)).toHaveTextContent("da premissa");
   });
 
   it("mostra os dados da empresa e agrupa os cenários por nome com todas as versões", async () => {

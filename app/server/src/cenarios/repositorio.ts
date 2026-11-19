@@ -3,7 +3,24 @@ import { ENTRADA_INVALIDA, ErroDominio, NAO_ENCONTRADO, PREMISSA_AUSENTE } from 
 import type { OperacaoEntrada, ResultadoOperacao } from "../dominio/tipos.js";
 import { obterEmpresa } from "../empresas/repositorio.js";
 import type { MotoresPort } from "../motores/regimeRegular.js";
+import { listarLinhas, obterConjunto, type LinhaPremissa } from "../premissas/repositorio.js";
 import { simularOperacao, type RespostaSimulacao } from "../simulacao/servico.js";
+
+/**
+ * Fotografia do conjunto de premissas NO MOMENTO do cálculo (todas as linhas e o estado de
+ * validação). A reabertura mostra isto, nunca o estado atual do conjunto.
+ */
+export interface PremissasSnapshot {
+  conjunto: {
+    id: number;
+    nome: string;
+    vigenciaInicio: string;
+    vigenciaFim: string | null;
+    validadoPor: string | null;
+    validadoEm: string | null;
+  };
+  linhas: LinhaPremissa[];
+}
 
 export interface Cenario {
   id: number;
@@ -15,6 +32,8 @@ export interface Cenario {
   /** O que de fato foi ao motor (alíquotas já preenchidas). */
   readonly entradaEnviada: OperacaoEntrada;
   readonly origensPremissas: Record<string, string>;
+  /** Somente leitura; null em cenário gravado por versão anterior (sem snapshot). */
+  readonly premissasSnapshot: PremissasSnapshot | null;
   /** Resultado congelado: reabrir nunca chama o motor. */
   resultado: ResultadoOperacao;
   versaoMotor: string;
@@ -58,6 +77,7 @@ function paraCenario(l: Linha): Cenario {
     operacao: OperacaoEntrada;
     entradaEnviada: OperacaoEntrada;
     origensPremissas: Record<string, string>;
+    premissasSnapshot?: PremissasSnapshot;
   };
   return {
     id: l.id,
@@ -67,6 +87,7 @@ function paraCenario(l: Linha): Cenario {
     entrada: e.operacao,
     entradaEnviada: e.entradaEnviada,
     origensPremissas: e.origensPremissas,
+    premissasSnapshot: e.premissasSnapshot ?? null,
     resultado: JSON.parse(l.resultado_json) as ResultadoOperacao,
     versaoMotor: l.versao_motor,
     conjuntoPremissasId: l.conjunto_premissas_id,
@@ -77,16 +98,37 @@ function paraCenario(l: Linha): Cenario {
 /**
  * Texto determinístico com as versões dos motores no momento do cálculo.
  * Formato: `regular=<app>+<db>; simples=<app>/<db>` (ex.: `regular=1.6.1+V0059; simples=0.0.6/V0059`).
+ * Simples fora do ar: `simples=indisponivel` (ele não participa do cálculo na Fase 1).
  */
 async function descreverVersaoMotor(motores: MotoresPort): Promise<string> {
   const v = await motores.versoes();
-  return `regular=${v.regimeRegular}; simples=${v.simples.app}/${v.simples.db}`;
+  const simples = v.simples ? `${v.simples.app}/${v.simples.db}` : "indisponivel";
+  return `regular=${v.regimeRegular}; simples=${simples}`;
 }
 
 function exigirConjunto(banco: Banco, id: number): void {
   if (!banco.prepare("SELECT 1 FROM conjunto_premissas WHERE id = ?").get(id)) {
     throw new ErroDominio(PREMISSA_AUSENTE, `Conjunto de premissas ${id} não existe.`, 422);
   }
+}
+
+/**
+ * Lido de forma síncrona logo antes de simular: a resolução das premissas também é síncrona
+ * (antes do primeiro await), então nenhuma outra requisição altera o conjunto entre os dois.
+ */
+function fotografarPremissas(banco: Banco, conjuntoId: number): PremissasSnapshot {
+  const c = obterConjunto(banco, conjuntoId);
+  return {
+    conjunto: {
+      id: c.id,
+      nome: c.nome,
+      vigenciaInicio: c.vigenciaInicio,
+      vigenciaFim: c.vigenciaFim,
+      validadoPor: c.validadoPor,
+      validadoEm: c.validadoEm,
+    },
+    linhas: listarLinhas(banco, conjuntoId),
+  };
 }
 
 function naoEncontrado(id: number): never {
@@ -97,6 +139,7 @@ function inserir(
   banco: Banco,
   d: { empresaId: number; nome: string; operacao: OperacaoEntrada; conjuntoPremissasId: number },
   sim: RespostaSimulacao,
+  premissasSnapshot: PremissasSnapshot,
   versaoMotor: string,
   versaoNumero: (banco: Banco) => number,
 ): Cenario {
@@ -104,6 +147,7 @@ function inserir(
     operacao: d.operacao,
     entradaEnviada: sim.entradaEnviada,
     origensPremissas: sim.origensPremissas,
+    premissasSnapshot,
   });
   const id = banco.transaction(() => {
     const r = banco
@@ -140,6 +184,7 @@ export async function salvarCenario(deps: Deps, dados: DadosCenario): Promise<Ce
   if (existeNome(banco, dados.empresaId, nome)) {
     invalida("Já existe cenário com esse nome; use recalcular ou outro nome.");
   }
+  const snapshot = fotografarPremissas(banco, dados.conjuntoPremissasId);
   const sim = await simularOperacao(deps, {
     operacao: dados.operacao,
     conjuntoPremissasId: dados.conjuntoPremissasId,
@@ -149,7 +194,7 @@ export async function salvarCenario(deps: Deps, dados: DadosCenario): Promise<Ce
   if (existeNome(banco, dados.empresaId, nome)) {
     invalida("Já existe cenário com esse nome; use recalcular ou outro nome.");
   }
-  return inserir(banco, { ...dados, nome }, sim, versaoMotor, () => 1);
+  return inserir(banco, { ...dados, nome }, sim, snapshot, versaoMotor, () => 1);
 }
 
 /** Lê somente o banco: o resultado é o que foi gravado, sem tocar os motores. */
@@ -163,6 +208,7 @@ export function reabrirCenario(banco: Banco, id: number): Cenario {
 export async function recalcularCenario(deps: Deps, id: number): Promise<Cenario> {
   const { banco, motores } = deps;
   const base = reabrirCenario(banco, id);
+  const snapshot = fotografarPremissas(banco, base.conjuntoPremissasId);
   const sim = await simularOperacao(deps, {
     operacao: base.entrada,
     conjuntoPremissasId: base.conjuntoPremissasId,
@@ -172,6 +218,7 @@ export async function recalcularCenario(deps: Deps, id: number): Promise<Cenario
     banco,
     { empresaId: base.empresaId, nome: base.nome, operacao: base.entrada, conjuntoPremissasId: base.conjuntoPremissasId },
     sim,
+    snapshot,
     versaoMotor,
     (b) =>
       (

@@ -52,6 +52,18 @@ describe("simularOperacao com o motor real", () => {
     });
   });
 
+  it("I2: itens com CBS/IBS próprios e IS em branco no item 2 → IS do conjunto (só IS) e totais oficiais", async () => {
+    const banco = abrirBanco(":memory:");
+    const c = criarConjunto(banco, { nome: "só IS", vigenciaInicio: "2027-01-01" });
+    adicionarPremissa(banco, c, { tributo: "IS_ADVALOREM", aliquota: "10.0", origem: "usuario" });
+    const op = structuredClone(oficial);
+    delete op.itens[1]!.aliquotasNominais!.impostoSeletivo;
+    const r = await simularOperacao({ motores, banco }, { operacao: op, conjuntoPremissasId: c });
+    expect(totais(r.resultado)).toEqual({ cbs: "56.76", ibs: "0.64", is: "15.00" });
+    expect(r.origensPremissas).toEqual({ IS_ADVALOREM: "usuario" });
+    expect(r.entradaEnviada.itens[1]!.aliquotasNominais!.impostoSeletivo).toEqual({ adValorem: "10.0" });
+  });
+
   it("com as alíquotas do próprio request e conjunto vazio, dá os mesmos totais (resolução preguiçosa)", async () => {
     const banco = abrirBanco(":memory:");
     const c = criarConjunto(banco, { nome: "vazio", vigenciaInicio: "2027-01-01" });

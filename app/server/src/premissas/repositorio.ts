@@ -115,12 +115,23 @@ export function adicionarPremissa(banco: Banco, conjuntoId: number, p: PremissaE
     invalida("A premissa IBS_MUN com municipioIbge exige também a uf.");
   }
   validarAliquota(p.aliquota);
+  // Campos de fonte: chamadores JSON não são tipados; texto só de espaços conta como ausente.
+  const fonte = (campo: "fonteNorma" | "fonteArtigo" | "consultadoEm"): string | undefined => {
+    const v: unknown = p[campo];
+    if (v === undefined || v === null) return undefined;
+    if (typeof v !== "string") invalida(`${campo} inválido: esperado texto, recebido ${JSON.stringify(v)}.`);
+    const t = v.trim();
+    return t === "" ? undefined : t;
+  };
+  const fonteNorma = fonte("fonteNorma");
+  const fonteArtigo = fonte("fonteArtigo");
+  const consultadoEm = fonte("consultadoEm");
+  if (consultadoEm !== undefined) validarDataIso(consultadoEm, "consultadoEm");
   if (p.origem !== "usuario") {
-    const vazio = (v?: string) => v === undefined || v === null || v === "";
     const faltam = [
-      vazio(p.fonteNorma) ? "fonteNorma" : null,
-      vazio(p.fonteArtigo) ? "fonteArtigo" : null,
-      vazio(p.consultadoEm) ? "consultadoEm" : null,
+      fonteNorma === undefined ? "fonteNorma" : null,
+      fonteArtigo === undefined ? "fonteArtigo" : null,
+      consultadoEm === undefined ? "consultadoEm" : null,
     ].filter((x): x is string => x !== null);
     if (faltam.length > 0) {
       throw new ErroDominio(
@@ -144,9 +155,9 @@ export function adicionarPremissa(banco: Banco, conjuntoId: number, p: PremissaE
         p.municipioIbge === undefined ? null : String(p.municipioIbge),
         p.aliquota,
         p.origem,
-        p.fonteNorma ?? null,
-        p.fonteArtigo ?? null,
-        p.consultadoEm ?? null,
+        fonteNorma ?? null,
+        fonteArtigo ?? null,
+        consultadoEm ?? null,
       );
     return Number(r.lastInsertRowid);
   } catch (e) {

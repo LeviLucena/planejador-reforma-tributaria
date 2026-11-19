@@ -139,3 +139,58 @@ describe("duplicarConjunto", () => {
     expect((b.prepare("SELECT COUNT(*) AS n FROM premissa_aliquota").get() as { n: number }).n).toBe(2);
   });
 });
+
+describe("adicionarPremissa: campos de fonte (m1)", () => {
+  const novo = () => {
+    const b = abrirBanco(":memory:");
+    return { b, c: criarConjunto(b, { nome: "t", vigenciaInicio: "2027-01-01" }) };
+  };
+  // Linhas sintéticas de teste (não são valores oficiais): só exercitam a validação.
+  const base = {
+    tributo: "CBS" as const,
+    aliquota: "1.0",
+    origem: "lei_transicao" as const,
+    fonteNorma: "Norma de teste",
+    fonteArtigo: "art. de teste",
+    consultadoEm: "2026-11-18",
+  };
+  const mensagem = (f: () => unknown) => {
+    try {
+      f();
+    } catch (e) {
+      return (e as Error).message;
+    }
+    return "não lançou";
+  };
+
+  it("texto só de espaços conta como ausente e a mensagem nomeia o campo", () => {
+    const { b, c } = novo();
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, fonteNorma: "   " }))).toMatch(/faltando: fonteNorma/);
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, fonteArtigo: "\t " }))).toMatch(/faltando: fonteArtigo/);
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, consultadoEm: " " }))).toMatch(/faltando: consultadoEm/);
+    expect(listarLinhas(b, c)).toHaveLength(0);
+  });
+
+  it("consultadoEm precisa ser data ISO válida", () => {
+    const { b, c } = novo();
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, consultadoEm: "ontem" }))).toMatch(/consultadoEm inválida/);
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, consultadoEm: "2026-02-30" }))).toMatch(/consultadoEm inválida/);
+    expect(listarLinhas(b, c)).toHaveLength(0);
+  });
+
+  it("campo de fonte que não é texto é recusado nomeando o campo", () => {
+    const { b, c } = novo();
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, fonteNorma: 214 as never }))).toMatch(/fonteNorma inválido: esperado texto/);
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, fonteArtigo: {} as never }))).toMatch(/fonteArtigo inválido/);
+    expect(mensagem(() => adicionarPremissa(b, c, { ...base, consultadoEm: 20261118 as never }))).toMatch(/consultadoEm inválido/);
+    expect(listarLinhas(b, c)).toHaveLength(0);
+  });
+
+  it("valores válidos são gravados sem os espaços das pontas", () => {
+    const { b, c } = novo();
+    adicionarPremissa(b, c, { ...base, fonteNorma: "  Norma de teste ", consultadoEm: " 2026-11-18 " });
+    const [l] = listarLinhas(b, c);
+    expect(l!.fonteNorma).toBe("Norma de teste");
+    expect(l!.consultadoEm).toBe("2026-11-18");
+  });
+});
