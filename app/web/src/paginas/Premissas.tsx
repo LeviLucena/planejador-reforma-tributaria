@@ -9,27 +9,12 @@ import type {
 import { cliente } from "../api/cliente";
 import { Campo } from "../componentes/Campo";
 import { ROTULO_ORIGEM } from "../componentes/ResultadoOperacao";
-import { formatarDecimalBR } from "../formatacao";
+import { dataBR, dataBrasilia, formatarDecimalBR } from "../formatacao";
 import { UFS } from "../simulador/modelo";
 
 const TRIBUTOS: TributoPremissa[] = ["CBS", "IBS_UF", "IBS_MUN", "IS_ADVALOREM", "IS_ADREM"];
 const NACIONAIS: TributoPremissa[] = ["CBS", "IS_ADVALOREM", "IS_ADREM"];
 const RE_DECIMAL = /^\d+(?:[.,]\d+)?$/;
-
-/** "2026-11-18" ou "2026-11-18T12:00:00.000Z" -> "18/11/2026" (por texto, sem fuso). */
-function dataBR(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
-
-const FORMATO_BRASILIA = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" });
-
-/** Instante ISO com horário (ex.: validado_em em UTC) -> data civil em Brasília; só-data passa como está. */
-function dataBrasilia(iso: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return dataBR(iso);
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : FORMATO_BRASILIA.format(d);
-}
 
 const mensagemDe = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
 

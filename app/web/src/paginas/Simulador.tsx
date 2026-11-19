@@ -18,6 +18,8 @@ import {
 } from "../simulador/modelo";
 
 interface Props {
+  /** Chamado quando uma simulação começa (depois da validação do formulário): o chamador descarta a anterior. */
+  aoIniciar?: () => void;
   /** Chamado a cada simulação bem-sucedida, para quem quiser salvar o cenário (Task 13). */
   aoSimular?: (requisicao: RequisicaoSimulacao, resposta: RespostaSimulacao) => void;
 }
@@ -46,7 +48,7 @@ function MensagemErro({ erro }: { erro: ErroApi }) {
   );
 }
 
-export function PaginaSimulador({ aoSimular }: Props) {
+export function PaginaSimulador({ aoSimular, aoIniciar }: Props) {
   const [form, setForm] = useState<FormSimulador>({
     uf: "",
     municipio: "",
@@ -141,6 +143,7 @@ export function PaginaSimulador({ aoSimular }: Props) {
     }
     const requisicao = montarRequisicao(form);
     const data = requisicao.operacao.dhFatoGerador.slice(0, 10);
+    aoIniciar?.();
     setSimulando(true);
     setErroApi(null);
     setResposta(null);

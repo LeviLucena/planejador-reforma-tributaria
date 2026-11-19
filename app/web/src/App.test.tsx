@@ -17,3 +17,17 @@ describe("Layout", () => {
     expect(screen.getByRole("link", { name: "Simulador" })).toBeInTheDocument();
   });
 });
+
+describe("Navegação: Empresas", () => {
+  it("tem o link Empresas e abre a página em /empresas", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "[]" }));
+    render(
+      <MemoryRouter initialEntries={["/empresas"]}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("link", { name: "Empresas" })).toHaveAttribute("href", "/empresas");
+    expect(await screen.findByRole("heading", { level: 1, name: "Empresas" })).toBeInTheDocument();
+    expect(await screen.findByText("Nenhuma empresa cadastrada.")).toBeInTheDocument();
+  });
+});
