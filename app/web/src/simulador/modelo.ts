@@ -5,7 +5,7 @@ import type {
   OperacaoEntrada,
 } from "../../../server/src/dominio/tipos";
 import type { RequisicaoSimulacao } from "../../../server/src/simulacao/servico";
-import { paraIsoComDeslocamento } from "../formatacao";
+import { paraIsoBrasilia } from "../formatacao";
 
 // Valores monetários e alíquotas ficam como TEXTO do começo ao fim: nunca viram Number.
 
@@ -158,11 +158,12 @@ export function validar(f: FormSimulador): Record<string, string> {
     if (!/^\d{3}$/.test(it.cst)) e[`${k}.cst`] = "O CST deve ter exatamente 3 dígitos.";
     if (!/^\d{6}$/.test(it.cClassTrib)) e[`${k}.cClassTrib`] = "O cClassTrib deve ter exatamente 6 dígitos.";
     for (const [campo, rotulo] of DECIMAIS) {
+      if (!it.isAberto && campo.startsWith("is")) continue; // bloco do IS recolhido não é enviado nem validado
       const v = it[campo] as string;
       if (!vazio(v) && !RE_DECIMAL.test(v.trim())) e[`${k}.${campo}`] = `${rotulo}: use apenas números (ex.: 100,50).`;
     }
-    if (!vazio(it.isCst) && !/^\d{3}$/.test(it.isCst)) e[`${k}.isCst`] = "O CST do IS deve ter exatamente 3 dígitos.";
-    if (!vazio(it.isCClassTrib) && !/^\d{6}$/.test(it.isCClassTrib)) {
+    if (it.isAberto && !vazio(it.isCst) && !/^\d{3}$/.test(it.isCst)) e[`${k}.isCst`] = "O CST do IS deve ter exatamente 3 dígitos.";
+    if (it.isAberto && !vazio(it.isCClassTrib) && !/^\d{6}$/.test(it.isCClassTrib)) {
       e[`${k}.isCClassTrib`] = "O cClassTrib do IS deve ter exatamente 6 dígitos.";
     }
   }
@@ -183,13 +184,14 @@ function montarItem(it: ItemForm, numero: number): ItemEntrada {
   if (!vazio(it.quantidade)) item.quantidade = decimal(it.quantidade);
   if (!vazio(it.unidade)) item.unidade = it.unidade.trim();
 
+  // Bloco do Imposto Seletivo recolhido = não enviado; aberto, só vai se tiver algum valor.
   const is: ImpostoSeletivoItem = {};
-  if (!vazio(it.isCst)) is.cst = it.isCst;
-  if (!vazio(it.isCClassTrib)) is.cClassTrib = it.isCClassTrib;
-  if (!vazio(it.isBaseCalculo)) is.baseCalculo = decimal(it.isBaseCalculo);
-  if (!vazio(it.isQuantidade)) is.quantidade = decimal(it.isQuantidade);
-  if (!vazio(it.isUnidade)) is.unidade = it.isUnidade.trim();
-  if (!vazio(it.isImpostoInformado)) is.impostoInformado = decimal(it.isImpostoInformado);
+  if (it.isAberto && !vazio(it.isCst)) is.cst = it.isCst;
+  if (it.isAberto && !vazio(it.isCClassTrib)) is.cClassTrib = it.isCClassTrib;
+  if (it.isAberto && !vazio(it.isBaseCalculo)) is.baseCalculo = decimal(it.isBaseCalculo);
+  if (it.isAberto && !vazio(it.isQuantidade)) is.quantidade = decimal(it.isQuantidade);
+  if (it.isAberto && !vazio(it.isUnidade)) is.unidade = it.isUnidade.trim();
+  if (it.isAberto && !vazio(it.isImpostoInformado)) is.impostoInformado = decimal(it.isImpostoInformado);
   if (Object.keys(is).length > 0) item.impostoSeletivo = is;
 
   // Alíquota em branco = "usar as premissas": o servidor completa o que faltar.
@@ -197,7 +199,7 @@ function montarItem(it: ItemForm, numero: number): ItemEntrada {
   if (!vazio(it.cbs)) nominais.cbs = decimal(it.cbs);
   if (!vazio(it.ibsEstadual)) nominais.ibsEstadual = decimal(it.ibsEstadual);
   if (!vazio(it.ibsMunicipal)) nominais.ibsMunicipal = decimal(it.ibsMunicipal);
-  if (!vazio(it.isAdValorem)) nominais.impostoSeletivo = { adValorem: decimal(it.isAdValorem) };
+  if (it.isAberto && !vazio(it.isAdValorem)) nominais.impostoSeletivo = { adValorem: decimal(it.isAdValorem) };
   if (Object.keys(nominais).length > 0) item.aliquotasNominais = nominais as AliquotasNominais;
   return item;
 }
@@ -207,7 +209,7 @@ export function montarRequisicao(f: FormSimulador): RequisicaoSimulacao {
   const operacao: OperacaoEntrada = {
     id: novoId(),
     versao: "1.0.0",
-    dhFatoGerador: paraIsoComDeslocamento(f.dataHora) as string,
+    dhFatoGerador: paraIsoBrasilia(f.dataHora) as string,
     municipio: Number(f.municipio),
     uf: f.uf,
     itens: f.itens.map((it, i) => montarItem(it, i + 1)),

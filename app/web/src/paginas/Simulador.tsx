@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Fundamentacao, SituacaoTributaria } from "../../../server/src/dominio/tipos";
 import type { ConjuntoResumo } from "../../../server/src/premissas/repositorio";
 import type { RequisicaoSimulacao, RespostaSimulacao } from "../../../server/src/simulacao/servico";
@@ -63,6 +63,12 @@ export function PaginaSimulador({ aoSimular }: Props) {
   const [erroApi, setErroApi] = useState<ErroApi | null>(null);
   const [resposta, setResposta] = useState<RespostaSimulacao | null>(null);
   const [fundamentacoes, setFundamentacoes] = useState<Fundamentacao[] | null>(null);
+  const [carregandoFund, setCarregandoFund] = useState(false);
+  const [erroClassificacoes, setErroClassificacoes] = useState(false);
+  const [focoErro, setFocoErro] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+  const resultadoRef = useRef<HTMLDivElement>(null);
+  const pedidoFund = useRef(0);
 
   useEffect(() => {
     let ativo = true;
@@ -89,12 +95,30 @@ export function PaginaSimulador({ aoSimular }: Props) {
     let ativo = true;
     cliente
       .classificacoes(dataFato)
-      .then((s) => ativo && setSituacoes(s))
-      .catch(() => ativo && setSituacoes([]));
+      .then((s) => {
+        if (!ativo) return;
+        setSituacoes(s);
+        setErroClassificacoes(false);
+      })
+      .catch(() => {
+        if (!ativo) return;
+        setSituacoes([]);
+        setErroClassificacoes(true);
+      });
     return () => {
       ativo = false;
     };
   }, [dataFato]);
+
+  // Após uma validação que falhou, o foco vai para o primeiro campo inválido (já renderizado).
+  useEffect(() => {
+    if (focoErro > 0) formRef.current?.querySelector<HTMLElement>("[aria-invalid]")?.focus();
+  }, [focoErro]);
+
+  // Após simular com sucesso, o foco vai para o título do resultado.
+  useEffect(() => {
+    if (resposta) resultadoRef.current?.querySelector<HTMLElement>("h2")?.focus();
+  }, [resposta]);
 
   const mudar = (mudanca: Partial<FormSimulador>) => setForm((f) => ({ ...f, ...mudanca }));
   const mudarItem = (chave: number, mudanca: Partial<ItemForm>) =>
@@ -111,25 +135,36 @@ export function PaginaSimulador({ aoSimular }: Props) {
     ev.preventDefault();
     const e = validar(form);
     setErros(e);
-    if (Object.keys(e).length > 0) return;
+    if (Object.keys(e).length > 0) {
+      setFocoErro((n) => n + 1);
+      return;
+    }
     const requisicao = montarRequisicao(form);
     const data = requisicao.operacao.dhFatoGerador.slice(0, 10);
     setSimulando(true);
     setErroApi(null);
     setResposta(null);
+    setFundamentacoes(null);
+    setCarregandoFund(false);
+    const pedido = ++pedidoFund.current;
+    let r: RespostaSimulacao;
     try {
-      const [r, fund] = await Promise.all([
-        cliente.simular(requisicao),
-        cliente.fundamentacoes(data).catch(() => null),
-      ]);
-      setFundamentacoes(fund);
-      setResposta(r);
-      aoSimular?.(requisicao, r);
+      r = await cliente.simular(requisicao);
     } catch (erro) {
       setErroApi(erro instanceof ErroApi ? erro : new ErroApi("ERRO_INTERNO", "Erro inesperado.", 0));
-    } finally {
       setSimulando(false);
+      return;
     }
+    // O resultado aparece já; a fundamentação legal chega depois, com estado próprio.
+    setResposta(r);
+    setSimulando(false);
+    aoSimular?.(requisicao, r);
+    setCarregandoFund(true);
+    cliente
+      .fundamentacoes(data)
+      .then((f) => pedido === pedidoFund.current && setFundamentacoes(f))
+      .catch(() => pedido === pedidoFund.current && setFundamentacoes(null))
+      .finally(() => pedido === pedidoFund.current && setCarregandoFund(false));
   }
 
   const conjunto = conjuntos?.find((c) => String(c.id) === form.conjuntoId);
@@ -143,7 +178,7 @@ export function PaginaSimulador({ aoSimular }: Props) {
         Informe a operação e os itens para calcular CBS, IBS e Imposto Seletivo com o motor oficial da Receita.
       </p>
 
-      <form onSubmit={simular} noValidate>
+      <form ref={formRef} onSubmit={simular} noValidate>
         <div className="barra-exemplo">
           <button type="button" className="secundario" onClick={carregarExemplo}>
             Carregar exemplo oficial da Receita
@@ -171,7 +206,7 @@ export function PaginaSimulador({ aoSimular }: Props) {
                 <input {...a} inputMode="numeric" maxLength={7} value={form.municipio} onChange={(ev) => mudar({ municipio: ev.target.value })} />
               )}
             </Campo>
-            <Campo id="dataHora" rotulo="Data e hora do fato gerador" erro={erros.dataHora} dica="Enviada com o fuso horário do seu navegador.">
+            <Campo id="dataHora" rotulo="Data e hora do fato gerador (horário de Brasília)" erro={erros.dataHora} dica="Sempre enviada no horário de Brasília (-03:00), qualquer que seja o fuso do seu navegador.">
               {(a) => (
                 <input {...a} type="datetime-local" value={form.dataHora} onChange={(ev) => mudar({ dataHora: ev.target.value })} />
               )}
@@ -198,13 +233,19 @@ export function PaginaSimulador({ aoSimular }: Props) {
           {semConjuntos && (
             <p role="status" className="mensagem-erro">
               {erroConjuntos ? `Não foi possível carregar os conjuntos de premissas: ${erroConjuntos} ` : ""}
-              Nenhum conjunto de premissas cadastrado. Para simular é preciso ter premissas de alíquotas (a página de
-              premissas chega em uma etapa seguinte).
+              Nenhum conjunto de premissas cadastrado. Para simular é preciso ter premissas de alíquotas: cadastre-as na
+              página Premissas.
             </p>
           )}
         </fieldset>
 
         <h2>Itens</h2>
+        {erroClassificacoes && (
+          <p role="status" className="dica">
+            Não foi possível carregar as listas de CST e cClassTrib. Digite os códigos à mão (CST com 3 dígitos e
+            cClassTrib com 6).
+          </p>
+        )}
         <TabelaItens
           itens={form.itens}
           situacoes={situacoes}
@@ -230,7 +271,11 @@ export function PaginaSimulador({ aoSimular }: Props) {
       </form>
 
       {erroApi && <MensagemErro erro={erroApi} />}
-      {resposta && <ResultadoOperacao resposta={resposta} fundamentacoes={fundamentacoes} />}
+      {resposta && (
+        <div ref={resultadoRef}>
+          <ResultadoOperacao resposta={resposta} fundamentacoes={fundamentacoes} carregandoFundamentacoes={carregandoFund} />
+        </div>
+      )}
     </section>
   );
 }

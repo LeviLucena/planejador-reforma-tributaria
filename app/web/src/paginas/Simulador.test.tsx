@@ -92,7 +92,7 @@ describe("formulário", () => {
     stub({ conjuntos: [] });
     render(<PaginaSimulador />);
     expect(await screen.findByText(/Nenhum conjunto de premissas cadastrado/)).toBeInTheDocument();
-    expect(screen.getByText(/página de premissas chega em uma etapa seguinte/)).toBeInTheDocument();
+    expect(screen.getByText(/cadastre-as na página Premissas/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Simular" })).toBeDisabled();
   });
 
@@ -228,7 +228,7 @@ describe("simulação com a resposta oficial do motor", () => {
     const envio = chamadas.find((c) => c.url === "/api/simular")!;
     const corpo = JSON.parse(envio.init!.body as string);
     expect(corpo.conjuntoPremissasId).toBe(1);
-    expect(corpo.operacao.dhFatoGerador).toMatch(/^2027-03-10T10:00:00[+-]\d{2}:\d{2}$/);
+    expect(corpo.operacao.dhFatoGerador).toBe("2027-03-10T10:00:00-03:00");
     expect(corpo.operacao.municipio).toBe(4314902);
     const [i1, i2, i3] = corpo.operacao.itens;
     expect(i1.baseCalculo).toBe("100");

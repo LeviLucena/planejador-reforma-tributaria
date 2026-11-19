@@ -1,4 +1,4 @@
-import { formatarDecimalBR, paraIsoComDeslocamento } from "./formatacao";
+import { formatarDecimalBR, paraIsoBrasilia } from "./formatacao";
 
 describe("formatarDecimalBR", () => {
   it.each([
@@ -17,23 +17,33 @@ describe("formatarDecimalBR", () => {
     ["1.2.3", "1.2.3"],
     ["1e5", "1e5"],
     ["12,5", "12,5"],
+    ["0001.50", "1,50"],
+    ["0.50", "0,50"],
+    ["000", "0"],
+    ["-007.5", "-7,5"],
+    ["00012345", "12.345"],
   ])("%j -> %j", (entrada, saida) => {
     expect(formatarDecimalBR(entrada)).toBe(saida);
   });
 });
 
-describe("paraIsoComDeslocamento", () => {
-  it.each([
-    [180, "-03:00"],
-    [0, "+00:00"],
-    [-330, "+05:30"],
-    [-60, "+01:00"],
-  ])("deslocamento %i min", (oeste, sufixo) => {
-    expect(paraIsoComDeslocamento("2027-03-10T10:00", oeste)).toBe(`2027-03-10T10:00:00${sufixo}`);
+describe("paraIsoBrasilia", () => {
+  const fusoOriginal = process.env.TZ;
+  afterEach(() => {
+    if (fusoOriginal === undefined) delete process.env.TZ;
+    else process.env.TZ = fusoOriginal;
   });
+
+  it.each(["UTC", "America/Sao_Paulo", "Asia/Kolkata", "Pacific/Auckland"])(
+    "sempre -03:00, mesmo com o fuso do processo em %s",
+    (fuso) => {
+      process.env.TZ = fuso;
+      expect(paraIsoBrasilia("2027-03-10T10:00")).toBe("2027-03-10T10:00:00-03:00");
+    },
+  );
   it("mantém segundos e rejeita formato inválido", () => {
-    expect(paraIsoComDeslocamento("2027-03-10T10:00:30", 180)).toBe("2027-03-10T10:00:30-03:00");
-    expect(paraIsoComDeslocamento("", 180)).toBeNull();
-    expect(paraIsoComDeslocamento("10/03/2027", 180)).toBeNull();
+    expect(paraIsoBrasilia("2027-03-10T10:00:30")).toBe("2027-03-10T10:00:30-03:00");
+    expect(paraIsoBrasilia("")).toBeNull();
+    expect(paraIsoBrasilia("10/03/2027")).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import type { RespostaSimulacao } from "../../../server/src/simulacao/servico";
 import { formatarDecimalBR } from "../formatacao";
 import { memoriasDoItem, totaisDe, valoresDoItem } from "../simulador/resultado";
 
-const ROTULO_ORIGEM: Record<string, string> = {
+export const ROTULO_ORIGEM: Record<string, string> = {
   oficial: "oficial",
   lei_transicao: "lei de transição",
   usuario: "premissa sua",
@@ -19,9 +19,10 @@ interface PropsItem {
   objeto: ObjetoResultado;
   cClassTribEntrada?: string;
   fundamentacoes: Fundamentacao[] | null;
+  carregandoFundamentacoes: boolean;
 }
 
-function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes }: PropsItem) {
+function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes, carregandoFundamentacoes }: PropsItem) {
   const [aberto, setAberto] = useState(false);
   const v = valoresDoItem(objeto);
   const cClassTrib = v.cClassTrib ?? cClassTribEntrada;
@@ -90,8 +91,11 @@ function ItemResultado({ objeto, cClassTribEntrada, fundamentacoes }: PropsItem)
                 </p>
               ))}
               <h4>Fundamentação legal</h4>
-              {fundamentacoes === null && <p className="dica">Fundamentação legal indisponível no momento.</p>}
-              {fundamentacoes !== null && legais.length === 0 && (
+              {carregandoFundamentacoes && <p className="dica">Carregando fundamentação…</p>}
+              {!carregandoFundamentacoes && fundamentacoes === null && (
+                <p className="dica">Fundamentação legal indisponível no momento.</p>
+              )}
+              {!carregandoFundamentacoes && fundamentacoes !== null && legais.length === 0 && (
                 <p className="dica">Nenhuma fundamentação encontrada para o cClassTrib {cClassTrib ?? "do item"} nesta data.</p>
               )}
               {legais.map((f, i) => (
@@ -115,15 +119,17 @@ interface Props {
   resposta: RespostaSimulacao;
   /** Fundamentações da data do fato gerador; null quando não foi possível carregá-las. */
   fundamentacoes: Fundamentacao[] | null;
+  /** true enquanto a fundamentação ainda está sendo buscada (o resultado já aparece antes dela). */
+  carregandoFundamentacoes?: boolean;
 }
 
-export function ResultadoOperacao({ resposta, fundamentacoes }: Props) {
+export function ResultadoOperacao({ resposta, fundamentacoes, carregandoFundamentacoes = false }: Props) {
   const totais = totaisDe(resposta.resultado);
   const origens = Object.entries(resposta.origensPremissas ?? {});
   const itensEntrada = resposta.entradaEnviada?.itens ?? [];
   return (
     <section aria-label="Resultado da simulação" className="resultado">
-      <h2>Resultado</h2>
+      <h2 tabIndex={-1}>Resultado</h2>
 
       <section aria-label="Totais" className="totais">
         <h3>Totais da operação</h3>
@@ -170,6 +176,7 @@ export function ResultadoOperacao({ resposta, fundamentacoes }: Props) {
           objeto={o}
           cClassTribEntrada={itensEntrada.find((i) => i.numero === o.nObj)?.cClassTrib}
           fundamentacoes={fundamentacoes}
+          carregandoFundamentacoes={carregandoFundamentacoes}
         />
       ))}
     </section>

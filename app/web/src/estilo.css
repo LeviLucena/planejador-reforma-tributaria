@@ -81,3 +81,4 @@ th { font-size: 0.8rem; color: var(--cor-suave); }
 .detalhe-item p { margin: 0.35rem 0; }
 .fundamentacao { padding: 0.5rem 0; border-top: 1px solid var(--cor-borda); }
 .referencia { white-space: pre-line; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

@@ -1,9 +1,13 @@
 import { NavLink, Outlet, Route, Routes } from "react-router-dom";
 import { AvisoSimulacao } from "./componentes/AvisoSimulacao";
+import { PaginaPremissas } from "./paginas/Premissas";
 import { PaginaSimulador } from "./paginas/Simulador";
 
 // Para adicionar uma página: uma linha aqui e uma em ROTAS.
-const NAVEGACAO = [{ caminho: "/", rotulo: "Simulador" }];
+const NAVEGACAO = [
+  { caminho: "/", rotulo: "Simulador" },
+  { caminho: "/premissas", rotulo: "Premissas" },
+];
 
 export function Layout() {
   return (
@@ -31,6 +35,7 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<PaginaSimulador />} />
+        <Route path="premissas" element={<PaginaPremissas />} />
       </Route>
     </Routes>
   );
